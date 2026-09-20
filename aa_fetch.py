@@ -334,8 +334,9 @@ def rank(slugs, mix=(0, 3, 1), weights=None, axis_weights=None, with_stability=T
     Default is equal weight across quality / cost / speed / stability, which is an
     assumption, not a finding -- pass axis_weights={"cost": 3} to shift it. `weights`
     (eval weights) swaps Artificial Analysis's index for composite() as the quality
-    axis. Models missing an axis are averaged over the axes they do have; `axes` in
-    each row says how many that was.
+    axis. Models missing an axis keep their per-axis ranks but get score=None rather
+    than an average over the axes they do have -- averaging over fewer axes would
+    reward missing data. `axes` in each row shows what that model was measured on.
     """
     rows, _ = compare(slugs, mix)
     present = [r["slug"] for r in rows]
@@ -350,14 +351,20 @@ def rank(slugs, mix=(0, 3, 1), weights=None, axis_weights=None, with_stability=T
         if st:
             axes.append(("stability", _ranks(st, False)))
     out = []
+    n_axes = len(axes)
     for s in present:
         items = [(n, m[s]) for n, m in axes if s in m]
         if not items:
             continue
         w = {n: (axis_weights or {}).get(n, 1.0) for n, _ in items}
-        out.append({"slug": s, "score": sum(w[n] * r for n, r in items) / sum(w.values()),
-                    "axes": {n: r for n, r in items}})
-    out.sort(key=lambda r: r["score"])
+        # A model missing an axis cannot share one ordering with models that have it:
+        # averaging over the axes it does have would score missing data as good data
+        # (a quality-only model would outrank a model top-3 on every axis). It keeps
+        # its per-axis ranks and drops out of the composite instead.
+        score = (sum(w[n] * r for n, r in items) / sum(w.values())
+                 if len(items) == n_axes else None)
+        out.append({"slug": s, "score": score, "axes": {n: r for n, r in items}})
+    out.sort(key=lambda r: (r["score"] is None, r["score"] or 0))
     return out
 
 
@@ -720,7 +727,8 @@ if __name__ == "__main__":
                 print("%-24s %6s  %s" % ("slug", "score", "per-axis ranks"))
                 for r in rank(slugs, mix, weights):
                     ax = "  ".join("%s=#%d" % (k, v) for k, v in r["axes"].items())
-                    print("%-24s %6.2f  %s" % (r["slug"], r["score"], ax))
+                    print("%-24s %6s  %s" % (r["slug"],
+                          "-" if r["score"] is None else "%.2f" % r["score"], ax))
             if show_evals:
                 print("\n" + eval_grid(slugs))
             if show_scores:
