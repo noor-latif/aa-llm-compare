@@ -19,7 +19,7 @@ WARN: mixed effort levels ['high', 'max'] -- not apples-to-apples
 ```
 
 Most of the value here is not the fetching. It is the **warnings**: this dataset is full
-of numbers that look comparable and aren't. See [Nine ways this data misleads](#nine-ways-this-data-misleads).
+of numbers that look comparable and aren't. See [Ten ways this data misleads](#ten-ways-this-data-misleads).
 
 ---
 
@@ -98,7 +98,7 @@ aa_fetch.rank(["glm-5-3", "glm-5-3-flash"], axis_weights={"cost": 3})
 
 ---
 
-## Nine ways this data misleads
+## Ten ways this data misleads
 
 Every one of these is guarded in code and asserted in `demo()`. They are the reason this
 repo exists — a comparison built straight off the raw fields will be wrong.
@@ -194,6 +194,30 @@ questions.
 Caveats on `composite()`: min-max normalisation is **relative to the compared set** — add a
 model and every score moves, and the worst model in each eval always scores 0 (coarse at
 n=5). A model with no score for a weighted eval counts as worst.
+
+**10. Hallucination is buried, and the rate is conditional.** There is no top-level
+`hallucination` field anywhere — it lives inside `omniscienceBreakdown` as
+`{accuracy, hallucinationRate}`, present for 528 of 653 models and all 69 of the
+trustworthy set. `compare()` surfaces both as `halluc%` and `acc`.
+
+The rate is the share of **wrong** answers that are confabulations rather than abstentions
+— not a share of all answers. Read alone it misleads in both directions:
+`command-a-plus` has the lowest rate in the trustworthy set (14.2%) but only 8.9% accuracy.
+It abstains constantly; that is caution, not honesty. Absolute confabulation is
+`(1 - accuracy) × hallucinationRate`:
+
+| Model | accuracy | hallucination rate | confabulations per 100 questions |
+|---|---|---|---|
+| GLM-5.3 | 0.339 | 29.6% | **19.6** |
+| GLM 5.3 Flash | 0.275 | 27.6% | **20.0** |
+| Gemini 3.8 Flash | 0.546 | 55.2% | 25.1 |
+| DeepSeek V4.1 Flash | 0.464 | 96.5% | 51.7 |
+| GPT-5.6 Luna | 0.427 | 92.6% | 53.1 |
+| `command-a-plus` | 0.089 | 14.2% | 12.9 |
+
+So on this axis the two GLM models are roughly 2.5x better than Luna and DeepSeek — and
+the raw rate ranking (which put GLM last at 27.6%) would have told you the opposite if you
+read it as "share of answers that are hallucinations."
 
 ## Collapsing to one ordering
 

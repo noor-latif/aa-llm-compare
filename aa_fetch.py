@@ -147,6 +147,13 @@ def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
             "hosts": m["hostModelCount"],
             "evals": len(m["intelligenceIndexEvaluations"]),
             "context": m["contextWindowTokens"],
+            # Hallucination hides inside omniscienceBreakdown -- there is no top-level
+            # field named after it. The rate is CONDITIONAL on answering wrong (share of
+            # failures that are confabulations rather than abstentions), so it must be
+            # read next to accuracy: 14% hallucination at 9% accuracy is abstention, not
+            # honesty. Absolute confabulation = (1 - accuracy) * hallucination.
+            "accuracy": (m.get("omniscienceBreakdown") or {}).get("accuracy"),
+            "hallucination": (m.get("omniscienceBreakdown") or {}).get("hallucinationRate"),
         })
     for r in rows:
         if r["iiEstimated"]:
@@ -162,6 +169,8 @@ def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
         if r["price"] is None:
             warns.append("%s: no published API price -- excluded from any cost ranking"
                          % r["slug"])
+        if r["hallucination"] is None:
+            warns.append("%s: no omniscience/hallucination data" % r["slug"])
     efforts = {r["effort"] for r in rows if r["effort"]}
     if len(efforts) > 1:
         warns.append("mixed effort levels %s -- not apples-to-apples" % sorted(efforts))
@@ -358,6 +367,10 @@ def demo():
     assert len(rows) == 3
     assert any("mixed effort" in w for w in warns), "effort guard did not fire"
     assert any("ESTIMATED" in w for w in warns), "estimated-index guard did not fire"
+    # Hallucination is nested and easy to lose; assert it survives into the row.
+    hal = {r["slug"]: r["hallucination"] for r in rows}
+    assert hal["glm-5-3"] is not None, "hallucination rate missing from compare()"
+    assert 0 < hal["glm-5-3"] < 1, hal
     # blended() replaces the five published ratios, so it must reproduce all of them
     # exactly. If AA changes its price model, this is where we find out.
     checked = 0
@@ -445,8 +458,9 @@ if __name__ == "__main__":
             print(json.dumps({"mix": "%d:%d:%d" % mix, "models": rows,
                               "warnings": warns}, indent=1))
         else:
-            hdr = ("%-22s %-6s %6s %8s %7s %-13s %5s" %
-                   ("slug", "effort", "II", "$/M", "tok/s", "p05-p95", "hosts"))
+            hdr = ("%-22s %-6s %6s %8s %7s %-13s %5s %7s %6s" %
+                   ("slug", "effort", "II", "$/M", "tok/s", "p05-p95", "hosts",
+                    "halluc%", "acc"))
             print(hdr)
             print("-" * len(hdr))
             for r in rows:
@@ -454,10 +468,15 @@ if __name__ == "__main__":
                           if r["speedP05"] else "-")
                 ii = "%6.2f%s" % (r["intelligenceIndex"], "~" if r["iiEstimated"] else " ")
                 price = "     n/a" if r["price"] is None else "%8.3f" % r["price"]
-                print("%-22s %-6s %s %s %7.1f %-13s %5s" %
+                hal = ("%6.1f%%" % (100 * r["hallucination"])
+                       if r["hallucination"] is not None else "     -")
+                acc = "%6.3f" % r["accuracy"] if r["accuracy"] is not None else "     -"
+                print("%-22s %-6s %s %s %7.1f %-13s %5s %7s %6s" %
                       (r["slug"], r["effort"] or "-", ii, price, r["speed"] or 0,
-                       spread, r["hosts"]))
+                       spread, r["hosts"], hal, acc))
             print("\n$/M at %d:%d:%d (cached:in:out). ~ = estimated index." % mix)
+            print("halluc% is the share of WRONG answers that are confabulations, not a "
+                  "share of all answers -- read it next to acc.")
             for w in warns:
                 print("WARN:", w)
             if show_rank:
