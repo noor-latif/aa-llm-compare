@@ -1,0 +1,1 @@
+--weights expects eval-slug=number pairs, e.g. --weights scicode=2,terminalbench-4-0=3

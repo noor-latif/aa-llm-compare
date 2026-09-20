@@ -504,20 +504,26 @@ if __name__ == "__main__":
         show_stab = "--stability" in rest
         show_rank = args[0] == "rank" or "--rank" in rest
         rest = [a for a in rest if a not in ("--json", "--evals", "--stability", "--rank")]
+        if "--mix" in rest:
+            i = rest.index("--mix")
+            parts = rest[i + 1].split(":")
+            if len(parts) != 3 or not all(p.lstrip("+").isdigit() for p in parts):
+                sys.exit("--mix must be three non-negative integers like 0:3:1")
+            mix, rest = tuple(int(p) for p in parts), rest[:i] + rest[i + 2:]
+        else:
+            mix = (0, 3, 1)
         weights = None
         if "--weights" in rest:
             i = rest.index("--weights")
             weights = {}
             for kv in rest[i + 1].split(","):
                 k, _, v = kv.partition("=")
-                weights[k.strip()] = float(v)
+                try:
+                    weights[k.strip()] = float(v)
+                except ValueError:
+                    sys.exit("--weights expects eval-slug=number pairs, e.g. "
+                             "--weights scicode=2,terminalbench-4-0=3")
             rest = rest[:i] + rest[i + 2:]
-        if "--mix" in rest:
-            i = rest.index("--mix")
-            mix, rest = tuple(int(x) for x in rest[i + 1].split(":")), rest[:i] + rest[i + 2:]
-        else:
-            mix = (0, 3, 1)
-        slugs = rest or [m["slug"] for m in trustworthy()]
         rows, warns = compare(slugs, mix)
         rows.sort(key=lambda r: -(r["intelligenceIndex"] or 0))
         if as_json:
