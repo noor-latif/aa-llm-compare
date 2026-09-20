@@ -328,6 +328,24 @@ def _ci_ties(rows):
     return [frozenset(r["slug"] for r in g) for g in groups if len(g) > 1]
 
 
+def _axis_score(axes, slug, axis_weights=None):
+    """Weighted mean of a model's per-axis ranks -- or None if it is missing any axis.
+
+    Averaging over only the axes a model happens to have would score missing data as
+    good data: a quality-only model would outrank one that is top-3 on every axis.
+    That was a real bug (the no-price k2-horizon models scored on 1 axis against
+    models scored on 3). Returns (score, per-axis ranks); score is None whenever the
+    model is not measured on every axis in `axes`. Pulled out of rank() so the rule
+    is testable offline.
+    """
+    items = [(n, m[slug]) for n, m in axes if slug in m]
+    ranks = {n: r for n, r in items}
+    if not items or len(items) < len(axes):
+        return None, ranks
+    w = {n: (axis_weights or {}).get(n, 1.0) for n, _ in items}
+    return sum(w[n] * r for n, r in items) / sum(w.values()), ranks
+
+
 def rank(slugs, mix=(0, 3, 1), weights=None, axis_weights=None, with_stability=True):
     """Collapse every axis into one ordering: weighted mean of per-axis RANKS.
 
@@ -351,19 +369,11 @@ def rank(slugs, mix=(0, 3, 1), weights=None, axis_weights=None, with_stability=T
         if st:
             axes.append(("stability", _ranks(st, False)))
     out = []
-    n_axes = len(axes)
     for s in present:
-        items = [(n, m[s]) for n, m in axes if s in m]
-        if not items:
+        score, ax = _axis_score(axes, s, axis_weights)
+        if not ax:
             continue
-        w = {n: (axis_weights or {}).get(n, 1.0) for n, _ in items}
-        # A model missing an axis cannot share one ordering with models that have it:
-        # averaging over the axes it does have would score missing data as good data
-        # (a quality-only model would outrank a model top-3 on every axis). It keeps
-        # its per-axis ranks and drops out of the composite instead.
-        score = (sum(w[n] * r for n, r in items) / sum(w.values())
-                 if len(items) == n_axes else None)
-        out.append({"slug": s, "score": score, "axes": {n: r for n, r in items}})
+        out.append({"slug": s, "score": score, "axes": ax})
     out.sort(key=lambda r: (r["score"] is None, r["score"] or 0))
     return out
 

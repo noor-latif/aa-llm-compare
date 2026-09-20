@@ -243,6 +243,41 @@ class TestRow(unittest.TestCase):
         self.assertIsNone(r["elo"])
 
 
+class TestAxisScore(unittest.TestCase):
+    """The rule that a model missing an axis gets no composite score.
+
+    This was a real bug: rank() averaged over whichever axes a model happened to
+    have, so the no-price models (the k2-horizon variants) scored on 1 axis against
+    models scored on 3 -- missing data scored as good data. The fix is extracted
+    into _axis_score() so it can be asserted offline.
+    """
+
+    def test_full_axes_get_weighted_mean(self):
+        axes = [("quality", {"a": 1, "b": 2}), ("cost", {"a": 2, "b": 1})]
+        score, ranks = a._axis_score(axes, "a")
+        self.assertEqual(score, 1.5)
+        self.assertEqual(ranks, {"quality": 1, "cost": 2})
+
+    def test_missing_one_axis_scores_none_not_a_mean_over_the_rest(self):
+        # The regression: "a" has quality only. Averaging over what it has would
+        # return 1.0 -- better than any fully-measured model. Must be None.
+        axes = [("quality", {"a": 1, "b": 2}), ("cost", {"b": 1})]
+        score, ranks = a._axis_score(axes, "a")
+        self.assertIsNone(score)
+        self.assertEqual(ranks, {"quality": 1})
+
+    def test_no_axes_at_all(self):
+        axes = [("quality", {"b": 2})]
+        score, ranks = a._axis_score(axes, "a")
+        self.assertIsNone(score)
+        self.assertEqual(ranks, {})
+
+    def test_axis_weights_respected(self):
+        axes = [("quality", {"a": 1, "b": 2}), ("cost", {"a": 2, "b": 1})]
+        score, _ = a._axis_score(axes, "a", {"quality": 3})
+        self.assertAlmostEqual(score, (3 * 1 + 1 * 2) / 4.0)
+
+
 class TestBaseSlug(unittest.TestCase):
     """_base_slug() collapses effort variants into one family. This is the step
     that turns 104 fully-measured models into 69 distinct ones -- get it wrong
