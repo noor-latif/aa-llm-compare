@@ -1,0 +1,24 @@
+name: tests
+
+# Run only the offline logic tests on every push and pull request. The `demo`
+# self-check is intentionally NOT invoked here -- it hits the live AA endpoint,
+# and the README tells humans not to poll the site. A CI job doing the same
+# would burn their bandwidth and race on shared state.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run offline tests
+        run: python -m unittest test_aa_fetch.py -v

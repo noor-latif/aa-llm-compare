@@ -103,6 +103,30 @@ class TestRanksAndTies(unittest.TestCase):
         self.assertEqual(a._ci_ties(rows), [])
 
 
+class TestBaseSlug(unittest.TestCase):
+    """_base_slug() collapses effort variants into one family. This is the step
+    that turns 104 fully-measured models into 69 distinct ones -- get it wrong
+    and a single model occupies several leaderboard slots at once.
+    """
+
+    def test_strips_every_effort_suffix(self):
+        for suffix in a._EFFORT_SUFFIXES:
+            with self.subTest(suffix=suffix):
+                self.assertEqual(a._base_slug("some-model" + suffix), "some-model")
+
+    def test_leaves_plain_slug_alone(self):
+        self.assertEqual(a._base_slug("glm-5-3"), "glm-5-3")
+
+    def test_does_not_strip_a_lookalike_suffix(self):
+        # ends in "-m3", which is not an effort level -- must survive untouched
+        self.assertEqual(a._base_slug("minimax-m3"), "minimax-m3")
+
+    def test_variants_collapse_to_one_family(self):
+        family = {"claude-fable-5-1", "claude-fable-5-1-xhigh",
+                  "claude-fable-5-1-high", "claude-fable-5-1-medium"}
+        self.assertEqual({a._base_slug(s) for s in family}, {"claude-fable-5-1"})
+
+
 class TestParseArgs(unittest.TestCase):
     """The CLI parser is what demo() could not previously reach. Every drop,
     rename, or flag-handling bug shows up here. No network -- default_slugs is
