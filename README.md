@@ -91,6 +91,15 @@ source's own display — which is what makes Kimi's 1049k visible against everyo
 parameters), `activeParams` (active, i.e. MoE), `license`, `elo` with its interval, and
 `context` in raw tokens.
 
+One caveat on `context`: it reports `contextWindowTokens` exactly as served. For DeepSeek
+V4.1 Flash the source page shows a **different** figure — `~1,500k (estimated)` against the
+served `1,000k` — and DeepSeek is the only model on that page whose context is marked
+"(estimated)". No 1.5M value exists anywhere in the payload, so that figure is AA's own
+estimate rather than a field they publish. Where the source marks a value as estimated, the
+served field is the official spec and the page's number is their judgement; read them as two
+different claims rather than a mismatch. This is the second such opacity found — the first
+was the headline blended price, which uses an undisclosed default mix.
+
 Library use:
 
 ```python
