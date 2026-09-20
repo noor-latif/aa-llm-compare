@@ -416,6 +416,42 @@ def eval_grid(slugs):
     return "\n".join(lines)
 
 
+def score_grid(slugs):
+    """Per-eval raw scores side by side.
+
+    eval_grid() ranks within each eval, which is right for ordering but hides the size
+    of the gaps: 1526 vs 1461 and 1526 vs 1525 both render as "#1 vs #2". Scores are on
+    mixed scales (ELO ~1500, percentages 0-1, omniscience an index around -10..20), so
+    they are formatted per range rather than normalised.
+    """
+    by = {m["slug"]: m for m in catalogue()}
+    table = {}
+    for s in slugs:
+        m = by.get(s)
+        if m is None:
+            continue
+        for e in m["intelligenceIndexEvaluations"]:
+            table.setdefault(e["slug"], {})[s] = e["score"]
+    if not table:
+        return "no per-eval data for any of: %s" % slugs
+    hdr = "%-42s" % "eval" + "".join("%14s" % s[:13] for s in slugs)
+    lines = [hdr, "-" * len(hdr)]
+    for ev in sorted(table):
+        cells = []
+        for s in slugs:
+            v = table[ev].get(s)
+            if v is None:
+                cells.append("%14s" % "-")
+            elif 0 <= v <= 1:
+                cells.append("%13.1f%%" % (100 * v))
+            elif abs(v) >= 1000:
+                cells.append("%14s" % format(round(v), ","))
+            else:
+                cells.append("%14.2f" % v)
+        lines.append("%-42s" % ev[:42] + "".join(cells))
+    return "\n".join(lines)
+
+
 def demo():
     """Self-check: parsing works and both kept channels answer."""
     models = catalogue()
@@ -450,6 +486,7 @@ def demo():
     # Luna reports 0s reasoning on a reasoning model: the timing-gap guard must fire.
     assert any("reasoning time reported as 0s" in w for w in warns), warns
     assert any(r["elo"] for r in rows), "no confidence intervals parsed"
+    assert "aa-briefcase" in score_grid(["glm-5-3"]), "score grid lost the eval slugs"
     # blended() replaces the five published ratios, so it must reproduce all of them
     # exactly. If AA changes its price model, this is where we find out.
     checked = 0
@@ -536,7 +573,8 @@ def _parse_args(rest, default_slugs=None):
     as_json = "--json" in rest
     show_evals = "--evals" in rest
     show_stab = "--stability" in rest
-    rest = [a for a in rest if a not in ("--json", "--evals", "--stability", "--rank")]
+    rest = [a for a in rest
+            if a not in ("--json", "--evals", "--stability", "--rank", "--scores")]
     if "--mix" in rest:
         i = rest.index("--mix")
         parts = rest[i + 1].split(":")
@@ -578,6 +616,7 @@ if __name__ == "__main__":
     elif args[0] in ("compare", "trustworthy", "rank"):
         slugs, mix, weights, as_json, show_evals, show_stab = _parse_args(args[1:])
         show_rank = args[0] == "rank" or "--rank" in args[1:]
+        show_scores = "--scores" in args[1:]
         rows, warns = compare(slugs, mix)
         rows.sort(key=lambda r: -(r["intelligenceIndex"] or 0))
         if as_json:
@@ -617,6 +656,8 @@ if __name__ == "__main__":
                     print("%-24s %6.2f  %s" % (r["slug"], r["score"], ax))
             if show_evals:
                 print("\n" + eval_grid(slugs))
+            if show_scores:
+                print("\n" + score_grid(slugs))
             if show_evals or weights:
                 print("\nweighted composite (normalised within this set)"
                       + ("" if weights else ", equal weights"))
