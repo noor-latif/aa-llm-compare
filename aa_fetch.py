@@ -506,7 +506,7 @@ def demo():
           % (len(models), len(s["modelSeries"]), len(rows), len(warns)))
 
 
-def _parse_args(rest):
+def _parse_args(rest, default_slugs=None):
     """Arg parser for compare/trustworthy/rank, pulled out so demo() can exercise it.
 
     The previous inline version was easy to break silently: a dropped variable once
@@ -542,8 +542,10 @@ def _parse_args(rest):
                          "--weights scicode=2,terminalbench-4-0=3")
         rest = rest[:i] + rest[i + 2:]
     # Resolving slugs here (not in __main__) matters: the dropped `slugs =` line was
-    # what broke the CLI, and this is the only place demo() can reach it.
-    slugs = rest or [m["slug"] for m in trustworthy()]
+    # what broke the CLI, and this is the only place demo() can reach it. default_slugs
+    # lets tests inject slugs without hitting the network.
+    slugs = rest or list(default_slugs if default_slugs is not None
+                         else (m["slug"] for m in trustworthy()))
     return slugs, mix, weights, as_json, show_evals, show_stab
 
 
