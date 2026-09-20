@@ -481,6 +481,24 @@ def score_grid(slugs):
     for ev in sorted(composite):
         row(ev, lambda m, ev=ev: composite[ev].get(m["slug"]))
 
+    # aa-briefcase is both the most-quoted eval and the only one with a published
+    # interval. A gap of 1526 vs 1461 and one of 1526 vs 1525 look identical as scores,
+    # so say whether the difference survives the error bars.
+    iv = []
+    for s in cols:
+        bb = ((by[s].get("briefcaseBreakdown") or {}).get("overall") or {})
+        if None not in (bb.get("elo"), bb.get("lower95ci"), bb.get("upper95ci")):
+            iv.append({"slug": s, "elo": bb["elo"],
+                       "eloLo": bb["lower95ci"], "eloHi": bb["upper95ci"]})
+    if len(iv) >= 2:
+        lines.append("")
+        lines.append("aa-briefcase 95% interval: " + ", ".join(
+            "%s %d [%d, %d]" % (r["slug"], r["elo"], r["eloLo"], r["eloHi"])
+            for r in sorted(iv, key=lambda r: -r["elo"])))
+        lines.append("  -> " + ("OVERLAP: treat as a tie, do not rank them apart"
+                                if _ci_ties(iv) else
+                                "separated: this gap is real"))
+
     extra = {}
     for k in BENCHMARK_FIELDS:
         vals = {s: by[s].get(k) for s in cols}
