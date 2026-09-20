@@ -416,39 +416,83 @@ def eval_grid(slugs):
     return "\n".join(lines)
 
 
+# Benchmark fields AA publishes alongside the composite index. Most are sparsely
+# populated -- many are null for most models -- so score_grid() shows only the ones
+# with data for at least one of the compared models, and names the rest.
+BENCHMARK_FIELDS = (
+    "gpqa", "hle", "aime25", "livecodebench", "scicode", "terminalBench21",
+    "terminalbenchHard", "terminalBench40", "tau2", "tauBanking", "mmmuPro",
+    "gdpval", "gdpvalNormalized", "critpt", "apexAgents", "ifbench", "lcr",
+    "mlcrOverall", "harveyLab", "itBenchSre", "analystAgent", "omniscience",
+    "automationBenchPartialScore", "gdpPdfAllPass", "enterpriseOpsGym",
+)
+
+
 def score_grid(slugs):
-    """Per-eval raw scores side by side.
+    """All benchmark scores side by side: the 10 composite evals plus every standalone
+    benchmark field with data.
 
     eval_grid() ranks within each eval, which is right for ordering but hides the size
     of the gaps: 1526 vs 1461 and 1526 vs 1525 both render as "#1 vs #2". Scores are on
     mixed scales (ELO ~1500, percentages 0-1, omniscience an index around -10..20), so
     they are formatted per range rather than normalised.
+
+    Several standalone fields duplicate composite ones under different names (for
+    example `hle` and `humanitys-last-exam`, `gdpval` and `gdpval-aa`). They are kept
+    because agreement between the two is a free sanity check on the extraction.
     """
     by = {m["slug"]: m for m in catalogue()}
-    table = {}
-    for s in slugs:
-        m = by.get(s)
-        if m is None:
-            continue
-        for e in m["intelligenceIndexEvaluations"]:
-            table.setdefault(e["slug"], {})[s] = e["score"]
-    if not table:
-        return "no per-eval data for any of: %s" % slugs
-    hdr = "%-42s" % "eval" + "".join("%14s" % s[:13] for s in slugs)
-    lines = [hdr, "-" * len(hdr)]
-    for ev in sorted(table):
+    cols = [s for s in slugs if s in by]
+    if not cols:
+        return "no such models: %s" % slugs
+    hdr = "%-42s" % "eval" + "".join("%15s" % s[:14] for s in slugs)
+    sep = "-" * len(hdr)
+    lines = []
+
+    def row(label, get):
         cells = []
         for s in slugs:
-            v = table[ev].get(s)
+            if s not in by:
+                cells.append("%15s" % "-")
+                continue
+            v = get(by[s])
             if v is None:
-                cells.append("%14s" % "-")
+                cells.append("%15s" % "-")
             elif 0 <= v <= 1:
-                cells.append("%13.1f%%" % (100 * v))
+                cells.append("%14.1f%%" % (100 * v))
             elif abs(v) >= 1000:
-                cells.append("%14s" % format(round(v), ","))
+                cells.append("%15s" % format(round(v), ","))
             else:
-                cells.append("%14.2f" % v)
-        lines.append("%-42s" % ev[:42] + "".join(cells))
+                cells.append("%15.2f" % v)
+        lines.append("%-42s" % label[:42] + "".join(cells))
+
+    composite = {}
+    for s in cols:
+        for e in by[s]["intelligenceIndexEvaluations"]:
+            composite.setdefault(e["slug"], {})[s] = e["score"]
+    lines.append("composite: the 10 evals behind the intelligence index")
+    lines.append(hdr)
+    lines.append(sep)
+    for ev in sorted(composite):
+        row(ev, lambda m, ev=ev: composite[ev].get(m["slug"]))
+
+    extra = {}
+    for k in BENCHMARK_FIELDS:
+        vals = {s: by[s].get(k) for s in cols}
+        if any(v is not None for v in vals.values()):
+            extra[k] = vals
+    if extra:
+        lines.append("")
+        lines.append("standalone benchmarks (only those with data for one of these)")
+        lines.append(hdr)
+        lines.append(sep)
+        for k in BENCHMARK_FIELDS:
+            if k in extra:
+                row(k, lambda m, k=k: m.get(k))
+    missing = [k for k in BENCHMARK_FIELDS if k not in extra]
+    if missing:
+        lines.append("")
+        lines.append("no data for either: " + ", ".join(missing))
     return "\n".join(lines)
 
 
