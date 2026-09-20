@@ -124,6 +124,19 @@ aa_fetch.rank(["glm-5-3", "glm-5-3-flash"], axis_weights={"cost": 3})
 
 ## How this data misleads
 
+Nine of these twelve fire as warnings the moment you run `compare`. **Three do not** —
+they are opt-in, because acting on them either costs an extra request or only means
+something for your specific workload. No warning will fire for these; you have to ask:
+
+- **#4 price mix** — use `--mix`. The footer always states the mix in use (`$/M at
+  0:3:1`…), so the default is visible, but nothing warns you it might be wrong for you.
+- **#7 composite blind spots** — use `--evals` (ranks), `--scores` (raw scores), or
+  `--weights` (your own emphasis). A model can lead the composite and lose your workload.
+- **#8 speed drift** — use `--stability`. It costs one POST per model, so it is not run by
+  default; a speed figure shown without it may be a week out of date.
+
+Treat the nine automatic warnings as the floor, not the ceiling.
+
 Every one of these is guarded in code and asserted in `demo()`. They are the reason this
 repo exists — a comparison built straight off the raw fields will be wrong.
 
