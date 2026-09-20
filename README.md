@@ -9,6 +9,10 @@ are undocumented and may change or gain auth without notice, and **for anything 
 on in production or commercially you should use their official API.** One cached fetch, never
 polling — see [Responsible use](#responsible-use).
 
+> **Just want the findings?** → **[Six things LLM leaderboards hide](FINDINGS.md)** — the data
+> problems on their own, no code: why 31 of 68 adjacent leaderboard pairs are statistically
+> indistinguishable, why the hallucination rate inverts when read alone, and the rest.
+
 ```bash
 python3 aa_fetch.py compare glm-5-3 glm-5-3-flash gemini-3-8-flash --evals --stability
 ```
