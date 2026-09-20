@@ -52,13 +52,16 @@ Python 3.8+. **No third-party packages.** No API key.
 
 ```bash
 git clone <this repo> && cd aa-llm-compare
+python3 -m unittest test_aa_fetch.py  # offline logic tests, no network, <1s
 python3 aa_fetch.py demo        # self-check; hits the live site, asserts everything still works
 python3 aa_fetch.py rank        # the ~69 models worth comparing, in one ordering
 ```
 
-`demo` is the canary. It asserts the catalogue shape, that `?compare=` is still ignored,
-that `blended()` reproduces every published price ratio to 1e-9, and that each data-quality
-guard actually fires. **Run it first and run it after the site changes.**
+`test_aa_fetch.py` covers the pure logic (blended price math, tie merging, CLI
+argument parsing) without the network — 19 tests, runs in milliseconds. `demo` is the
+canary. It asserts the catalogue shape, that `?compare=` is still ignored, that `blended()`
+reproduces every published price ratio to 1e-9, and that each data-quality guard
+actually fires. **Run both after the site changes.**
 
 ## Commands
 
