@@ -147,6 +147,9 @@ def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
             "hosts": m["hostModelCount"],
             "evals": len(m["intelligenceIndexEvaluations"]),
             "context": m["contextWindowTokens"],
+            "params": m.get("parameters"),
+            "activeParams": m.get("inferenceParametersActiveBillions"),
+            "license": m.get("licenseName"),
             # Hallucination hides inside omniscienceBreakdown -- there is no top-level
             # field named after it. The rate is CONDITIONAL on answering wrong (share of
             # failures that are confabulations rather than abstentions), so it must be
@@ -565,9 +568,9 @@ if __name__ == "__main__":
             print(json.dumps({"mix": "%d:%d:%d" % mix, "models": rows,
                               "warnings": warns}, indent=1))
         else:
-            hdr = ("%-22s %-6s %6s %8s %7s %-13s %5s %7s %6s" %
+            hdr = ("%-22s %-6s %6s %8s %7s %-13s %5s %7s %6s %8s" %
                    ("slug", "effort", "II", "$/M", "tok/s", "p05-p95", "hosts",
-                    "halluc%", "acc"))
+                    "halluc%", "acc", "context"))
             print(hdr)
             print("-" * len(hdr))
             for r in rows:
@@ -578,9 +581,13 @@ if __name__ == "__main__":
                 hal = ("%6.1f%%" % (100 * r["hallucination"])
                        if r["hallucination"] is not None else "     -")
                 acc = "%6.3f" % r["accuracy"] if r["accuracy"] is not None else "     -"
-                print("%-22s %-6s %s %s %7.1f %-13s %5s %7s %6s" %
+                # Rendered in thousands to match the site's own display, so the
+                # Kimi-vs-others gap (1049k vs 1000k) is actually visible.
+                ctx = ("%7dk" % round(r["context"] / 1000)
+                       if r["context"] else "      -")
+                print("%-22s %-6s %s %s %7.1f %-13s %5s %7s %6s %8s" %
                       (r["slug"], r["effort"] or "-", ii, price, r["speed"] or 0,
-                       spread, r["hosts"], hal, acc))
+                       spread, r["hosts"], hal, acc, ctx))
             print("\n$/M at %d:%d:%d (cached:in:out). ~ = estimated index." % mix)
             print("halluc% is the share of WRONG answers that are confabulations, not a "
                   "share of all answers -- read it next to acc.")

@@ -84,6 +84,13 @@ Flags work on `compare`, `trustworthy` and `rank`:
 | `--rank` | Collapse every axis into a single ordering |
 | `--json` | Machine-readable output (redirect to a file to save a leaderboard) |
 
+The printed table shows: `slug`, `effort`, intelligence index, `$/M` at your mix, `tok/s`,
+its `p05-p95` spread, `hosts`, `halluc%`, `acc`, and `context` (in thousands, to match the
+source's own display — which is what makes Kimi's 1049k visible against everyone else's
+1000k). `--json` exposes more than the table can fit, including `params` (total
+parameters), `activeParams` (active, i.e. MoE), `license`, `elo` with its interval, and
+`context` in raw tokens.
+
 Library use:
 
 ```python
