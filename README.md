@@ -297,6 +297,20 @@ figures differ from a strict ranking, and it **corrected an earlier claim in thi
 before ties were merged, `deepseek-v4-1-flash` looked like the top-6-everywhere pick. Its
 worst case is actually #8. Merging the ties moved the answer.
 
+## Checked, and it did not matter
+
+Recorded so nobody redoes it. Every claim above survived a sweep; these did not change
+anything:
+
+- **Prompt length.** Speed is measured at four prompt types (`medium`, `long`, `hundredK`,
+  `mediumParallel`). Across the five reference models the speed ordering is **identical at
+  all four** (Gemini > DeepSeek > Luna > GLM 5.3 Flash > GLM-5.3), so `compare()`'s default
+  of `long` is safe. Absolute values do move — Luna ranges 103–162 tok/s across prompt
+  types — which is why `--stability` exists.
+- **Ties among the five.** None of the five reference models has overlapping intervals with
+  another, so their ordering is not affected by tie merging. Among the full 69 it matters a
+  great deal (35 of 69 tied).
+
 ## The endpoints
 
 | Route | Method | Auth | Notes |
