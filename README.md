@@ -1,7 +1,13 @@
 # aa-llm-compare
 
 Programmatic LLM comparison from [Artificial Analysis](https://artificialanalysis.ai) —
-no API key, no paid plan, no dependencies beyond the Python standard library.
+standard library only, no dependencies.
+
+**Unofficial research client.** It reads the same figures the public site renders, through
+the site's own internal routes. It is not affiliated with Artificial Analysis, those routes
+are undocumented and may change or gain auth without notice, and **for anything you depend
+on in production or commercially you should use their official API.** One cached fetch, never
+polling — see [Responsible use](#responsible-use).
 
 ```bash
 python3 aa_fetch.py compare glm-5-3 glm-5-3-flash gemini-3-8-flash --evals --stability
