@@ -456,6 +456,22 @@ def demo():
     assert 50 < len(deduped) < len(full), f"trustworthy subset looks wrong: {len(deduped)}/{len(full)}"
     assert len({_base_slug(m["slug"]) for m in deduped}) == len(deduped), "effort dedupe missed a family"
 
+    # The CLI parser is the only path demo() does NOT naturally exercise, so it was
+    # broken silently twice before. Pulled it out into _parse_args (which also
+    # resolves slugs, since the dropped `slugs =` line was the actual break) and
+    # hit it here without the network -- a dropped variable now fails demo, not users.
+    parsed = _parse_args(["glm-5-3", "--mix", "0:3:1"])
+    assert parsed[0] == ["glm-5-3"] and parsed[1] == (0, 3, 1) and parsed[2] is None, parsed
+    parsed = _parse_args(["--weights", "scicode=2,terminalbench-4-0=3"])
+    assert parsed[2] == {"scicode": 2.0, "terminalbench-4-0": 3.0}, parsed
+    for bad in (["--mix", "bogus"], ["--mix", "0:3"], ["--weights", "scicode"],
+                ["--weights", "=2"], ["--weights", "scicode=2,bad=x"]):
+        try:
+            _parse_args(bad)
+        except SystemExit:
+            continue
+        raise AssertionError("bad args should have exited: %r" % bad)
+
     # Weighting a single eval must promote that eval's own winner to the top. Deriving
     # the expected winner from the grid keeps this about the logic, not today's data.
     trio = ["glm-5-3", "gemini-3-8-flash", "deepseek-v4-1-flash"]
@@ -490,6 +506,47 @@ def demo():
           % (len(models), len(s["modelSeries"]), len(rows), len(warns)))
 
 
+def _parse_args(rest):
+    """Arg parser for compare/trustworthy/rank, pulled out so demo() can exercise it.
+
+    The previous inline version was easy to break silently: a dropped variable once
+    shipped a NameError to every CLI user because demo() never exercised this path.
+    Now it is reachable from demo(), every parser change is checked.
+    """
+    rest = list(rest)
+    as_json = "--json" in rest
+    show_evals = "--evals" in rest
+    show_stab = "--stability" in rest
+    rest = [a for a in rest if a not in ("--json", "--evals", "--stability", "--rank")]
+    if "--mix" in rest:
+        i = rest.index("--mix")
+        parts = rest[i + 1].split(":")
+        if len(parts) != 3 or not all(p.lstrip("+").isdigit() for p in parts):
+            sys.exit("--mix must be three non-negative integers like 0:3:1")
+        mix, rest = tuple(int(p) for p in parts), rest[:i] + rest[i + 2:]
+    else:
+        mix = (0, 3, 1)
+    weights = None
+    if "--weights" in rest:
+        i = rest.index("--weights")
+        weights = {}
+        for kv in rest[i + 1].split(","):
+            k, _, v = kv.partition("=")
+            if not k or not v:
+                sys.exit("--weights expects eval-slug=number pairs, e.g. "
+                         "--weights scicode=2,terminalbench-4-0=3")
+            try:
+                weights[k.strip()] = float(v)
+            except ValueError:
+                sys.exit("--weights expects eval-slug=number pairs, e.g. "
+                         "--weights scicode=2,terminalbench-4-0=3")
+        rest = rest[:i] + rest[i + 2:]
+    # Resolving slugs here (not in __main__) matters: the dropped `slugs =` line was
+    # what broke the CLI, and this is the only place demo() can reach it.
+    slugs = rest or [m["slug"] for m in trustworthy()]
+    return slugs, mix, weights, as_json, show_evals, show_stab
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     if not args or args[0] == "demo":
@@ -498,32 +555,8 @@ if __name__ == "__main__":
         json.dump(catalogue(), open(args[1], "w"), indent=1)
         print("wrote", args[1])
     elif args[0] in ("compare", "trustworthy", "rank"):
-        rest = args[1:]
-        as_json = "--json" in rest
-        show_evals = "--evals" in rest
-        show_stab = "--stability" in rest
-        show_rank = args[0] == "rank" or "--rank" in rest
-        rest = [a for a in rest if a not in ("--json", "--evals", "--stability", "--rank")]
-        if "--mix" in rest:
-            i = rest.index("--mix")
-            parts = rest[i + 1].split(":")
-            if len(parts) != 3 or not all(p.lstrip("+").isdigit() for p in parts):
-                sys.exit("--mix must be three non-negative integers like 0:3:1")
-            mix, rest = tuple(int(p) for p in parts), rest[:i] + rest[i + 2:]
-        else:
-            mix = (0, 3, 1)
-        weights = None
-        if "--weights" in rest:
-            i = rest.index("--weights")
-            weights = {}
-            for kv in rest[i + 1].split(","):
-                k, _, v = kv.partition("=")
-                try:
-                    weights[k.strip()] = float(v)
-                except ValueError:
-                    sys.exit("--weights expects eval-slug=number pairs, e.g. "
-                             "--weights scicode=2,terminalbench-4-0=3")
-            rest = rest[:i] + rest[i + 2:]
+        slugs, mix, weights, as_json, show_evals, show_stab = _parse_args(args[1:])
+        show_rank = args[0] == "rank" or "--rank" in args[1:]
         rows, warns = compare(slugs, mix)
         rows.sort(key=lambda r: -(r["intelligenceIndex"] or 0))
         if as_json:
