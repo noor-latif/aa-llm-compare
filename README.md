@@ -19,7 +19,7 @@ WARN: mixed effort levels ['high', 'max'] -- not apples-to-apples
 ```
 
 Most of the value here is not the fetching. It is the **warnings**: this dataset is full
-of numbers that look comparable and aren't. See [Ten ways this data misleads](#ten-ways-this-data-misleads).
+of numbers that look comparable and aren't. See [How this data misleads](#how-this-data-misleads).
 
 ---
 
@@ -98,7 +98,7 @@ aa_fetch.rank(["glm-5-3", "glm-5-3-flash"], axis_weights={"cost": 3})
 
 ---
 
-## Ten ways this data misleads
+## How this data misleads
 
 Every one of these is guarded in code and asserted in `demo()`. They are the reason this
 repo exists — a comparison built straight off the raw fields will be wrong.
@@ -218,6 +218,31 @@ It abstains constantly; that is caution, not honesty. Absolute confabulation is
 So on this axis the two GLM models are roughly 2.5x better than Luna and DeepSeek — and
 the raw rate ranking (which put GLM last at 27.6%) would have told you the opposite if you
 read it as "share of answers that are hallucinations."
+
+**11. Nearly half the leaderboard is noise.** `briefcaseBreakdown.overall` is the only
+place AA publishes an interval (`elo` with `lower95ci` / `upper95ci`). Across the 69
+trustworthy models, **31 of the 68 adjacent pairs have overlapping 95% intervals** — they
+are statistically indistinguishable. `claude-fable-5-1` (1678) and `claude-opus-5` (1673)
+overlap. So does `glm-5-3` (1525) and `grok-4-6` (1523). `compare()` warns on every
+overlapping adjacent pair. Ordering models that the data cannot separate is the most common
+way a leaderboard lies while every individual number stays true.
+
+**12. Reasoning time is not always timed.** `endToEndResponseTime` splits latency into
+`input` / `reasoning` / `answer`. Some reasoning models report `reasoning: 0.00` — the
+thinking time is silently folded into `input` instead:
+
+| Model | total | input | reasoning | answer |
+|---|---|---|---|---|
+| GLM-5.3 | 37.66 | 2.99 | 27.73 | 6.93 |
+| DeepSeek V4.1 Flash | 13.20 | 1.15 | 9.64 | 2.41 |
+| Gemini 3.8 Flash | 18.07 | **16.44** | **0.00** | 1.64 |
+| GPT-5.6 Luna | 126.37 | **123.28** | **0.00** | 3.09 |
+
+That is the explanation for the absurd 123.28s time-to-first-chunk noted earlier: it is
+not latency, it is un-timed reasoning. `compare()` flags any reasoning model reporting 0s
+and tells you not to compare its latency. Other genuinely nested metrics worth knowing
+about: `capabilities.{engineering,legal,economics,financeAndAccounting,strategyAndOps,
+healthcareAndMedical}` (domain scores, ~150 models) and `openness.opennessIndex` (322).
 
 ## Collapsing to one ordering
 

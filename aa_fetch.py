@@ -154,6 +154,13 @@ def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
             # honesty. Absolute confabulation = (1 - accuracy) * hallucination.
             "accuracy": (m.get("omniscienceBreakdown") or {}).get("accuracy"),
             "hallucination": (m.get("omniscienceBreakdown") or {}).get("hallucinationRate"),
+            # briefcaseBreakdown is the only place AA publishes an interval. Without it a
+            # 2-point gap between two models looks identical to a 200-point one.
+            "elo": ((m.get("briefcaseBreakdown") or {}).get("overall") or {}).get("elo"),
+            "eloLo": ((m.get("briefcaseBreakdown") or {}).get("overall") or {}).get("lower95ci"),
+            "eloHi": ((m.get("briefcaseBreakdown") or {}).get("overall") or {}).get("upper95ci"),
+            "isReasoning": m.get("isReasoning"),
+            "reasoningSec": (m.get("endToEndResponseTime") or {}).get("reasoning"),
         })
     for r in rows:
         if r["iiEstimated"]:
@@ -171,6 +178,22 @@ def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
                          % r["slug"])
         if r["hallucination"] is None:
             warns.append("%s: no omniscience/hallucination data" % r["slug"])
+    # A reasoning model reporting 0s of reasoning time has not had its reasoning timed --
+    # the cost is silently folded into "input", which is why some TTFC figures are absurd.
+    for r in rows:
+        if r["isReasoning"] and r["reasoningSec"] == 0:
+            warns.append("%s: reasoning time reported as 0s -- latency excludes reasoning, "
+                         "so its TTFC and total are not comparable" % r["slug"])
+
+    # Adjacent models whose 95% intervals overlap are not actually separated.
+    rated = sorted((r for r in rows if r["elo"] is not None),
+                   key=lambda r: -r["elo"])
+    for a, b in zip(rated, rated[1:]):
+        if a["eloLo"] <= b["eloHi"] and b["eloLo"] <= a["eloHi"]:
+            warns.append("%s (%d) and %s (%d) have overlapping 95%% CIs -- "
+                         "statistically indistinguishable, do not rank them apart"
+                         % (a["slug"], a["elo"], b["slug"], b["elo"]))
+
     efforts = {r["effort"] for r in rows if r["effort"]}
     if len(efforts) > 1:
         warns.append("mixed effort levels %s -- not apples-to-apples" % sorted(efforts))
@@ -371,6 +394,9 @@ def demo():
     hal = {r["slug"]: r["hallucination"] for r in rows}
     assert hal["glm-5-3"] is not None, "hallucination rate missing from compare()"
     assert 0 < hal["glm-5-3"] < 1, hal
+    # Luna reports 0s reasoning on a reasoning model: the timing-gap guard must fire.
+    assert any("reasoning time reported as 0s" in w for w in warns), warns
+    assert any(r["elo"] for r in rows), "no confidence intervals parsed"
     # blended() replaces the five published ratios, so it must reproduce all of them
     # exactly. If AA changes its price model, this is where we find out.
     checked = 0
