@@ -150,6 +150,10 @@ def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
             "params": m.get("parameters"),
             "activeParams": m.get("inferenceParametersActiveBillions"),
             "license": m.get("licenseName"),
+            # Total output tokens to run the whole benchmark suite -- this is what the
+            # "cost to run the intelligence index" figure is actually spending on. Useful
+            # for sanity-checking a suite cost against a model's token appetite.
+            "suiteTokens": (m.get("canonicalIntelligenceIndexTokenCount") or {}).get("output"),
             # Hallucination hides inside omniscienceBreakdown -- there is no top-level
             # field named after it. The rate is CONDITIONAL on answering wrong (share of
             # failures that are confabulations rather than abstentions), so it must be

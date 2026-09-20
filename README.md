@@ -88,8 +88,10 @@ The printed table shows: `slug`, `effort`, intelligence index, `$/M` at your mix
 its `p05-p95` spread, `hosts`, `halluc%`, `acc`, and `context` (in thousands, to match the
 source's own display — which is what makes Kimi's 1049k visible against everyone else's
 1000k). `--json` exposes more than the table can fit, including `params` (total
-parameters), `activeParams` (active, i.e. MoE), `license`, `elo` with its interval, and
-`context` in raw tokens.
+parameters), `activeParams` (active, i.e. MoE), `license`, `elo` with its interval,
+`context` in raw tokens, and `suiteTokens` — the total output tokens consumed running the
+whole benchmark suite, which is what the "cost to run the intelligence index" number is
+actually buying (DeepSeek: 253M output tokens for $477).
 
 One caveat on `context`: it reports `contextWindowTokens` exactly as served. For DeepSeek
 V4.1 Flash the source page shows a **different** figure — `~1,500k (estimated)` against the
