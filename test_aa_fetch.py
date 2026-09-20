@@ -151,6 +151,90 @@ class TestScan(unittest.TestCase):
         self.assertEqual(len(out), 1)
 
 
+def _fake_model(**over):
+    """A minimal but complete-enough catalogue model. Only the fields _row() reads
+    matter; everything else is deliberately absent so a KeyError in _row() shows up
+    as a test failure rather than as a silently-None metric in production."""
+    m = {
+        "slug": "fake-model",
+        "effort": {"label": "max"},
+        "intelligenceIndex": 40.0,
+        "intelligenceIndexIsEstimated": False,
+        "performanceDataSource": {"type": "firstParty"},
+        "deprecated": False,
+        "price1mInputTokens": 0.15,
+        "price1mOutputTokens": 0.50,
+        "cacheHitPrice": 0.026,
+        "performanceByPromptType": {"long": {"medianOutputSpeed": 100.0}},
+        "outputSpeedVariance": {"p05": 80.0, "p95": 120.0},
+        "hostModelCount": 7,
+        "intelligenceIndexEvaluations": [{"slug": "scicode", "score": 0.5}] * 10,
+        "contextWindowTokens": 1_000_000,
+        "parameters": 320,
+        "inferenceParametersActiveBillions": 18,
+        "licenseName": "MIT",
+        "canonicalIntelligenceIndexTokenCount": {"output": 180_681_476},
+        "omniscienceBreakdown": {"accuracy": 0.275, "hallucinationRate": 0.276},
+        "briefcaseBreakdown": {"overall": {"elo": 1461, "lower95ci": 1451, "upper95ci": 1470}},
+        "isReasoning": True,
+        "endToEndResponseTime": {"reasoning": 21.0},
+    }
+    m.update(over)
+    return m
+
+
+class TestRow(unittest.TestCase):
+    """_row() is where nested field extraction happens, and nested extraction is
+    where this tool has historically failed -- hallucination sat two levels down
+    inside omniscienceBreakdown for hours before a screenshot caught it. These
+    tests run offline, so a wrong path fails immediately instead of a metric
+    quietly reading None.
+    """
+
+    def test_flat_fields(self):
+        r = a._row(_fake_model())
+        self.assertEqual(r["slug"], "fake-model")
+        self.assertEqual(r["effort"], "max")
+        self.assertEqual(r["intelligenceIndex"], 40.0)
+        self.assertEqual(r["hosts"], 7)
+        self.assertEqual(r["evals"], 10)
+        self.assertEqual(r["context"], 1_000_000)
+        self.assertEqual(r["params"], 320)
+        self.assertEqual(r["activeParams"], 18)
+        self.assertEqual(r["license"], "MIT")
+
+    def test_nested_hallucination_is_extracted(self):
+        # The regression that motivated this class: no top-level field, two levels in.
+        r = a._row(_fake_model())
+        self.assertEqual(r["accuracy"], 0.275)
+        self.assertEqual(r["hallucination"], 0.276)
+
+    def test_nested_elo_interval_is_extracted(self):
+        r = a._row(_fake_model())
+        self.assertEqual((r["elo"], r["eloLo"], r["eloHi"]), (1461, 1451, 1470))
+
+    def test_suite_tokens_extracted(self):
+        r = a._row(_fake_model())
+        self.assertEqual(r["suiteTokens"], 180_681_476)
+
+    def test_price_uses_the_mix(self):
+        self.assertAlmostEqual(a._row(_fake_model(), mix=(0, 3, 1))["price"], 0.2375)
+        self.assertAlmostEqual(a._row(_fake_model(), mix=(7, 2, 1))["price"], 0.0982)
+
+    def test_speed_reads_the_requested_prompt_type(self):
+        m = _fake_model(performanceByPromptType={"long": {"medianOutputSpeed": 100.0},
+                                                 "medium": {"medianOutputSpeed": 150.0}})
+        self.assertEqual(a._row(m, prompt_type="medium")["speed"], 150.0)
+        self.assertEqual(a._row(m, prompt_type="long")["speed"], 100.0)
+
+    def test_missing_nested_blocks_yield_none_not_crash(self):
+        # 248/653 models have no omniscience data at all.
+        r = a._row(_fake_model(omniscienceBreakdown=None, briefcaseBreakdown=None))
+        self.assertIsNone(r["accuracy"])
+        self.assertIsNone(r["hallucination"])
+        self.assertIsNone(r["elo"])
+
+
 class TestBaseSlug(unittest.TestCase):
     """_base_slug() collapses effort variants into one family. This is the step
     that turns 104 fully-measured models into 69 distinct ones -- get it wrong

@@ -114,6 +114,55 @@ def blended(m, cached=0, inp=3, out=1):
     return (cached * ci + inp * i + out * o) / (cached + inp + out)
 
 
+def _row(m, mix=(0, 3, 1), prompt_type="long"):
+    """Turn one catalogue model into a comparison row.
+
+    Pure -- takes a model dict, returns a dict. Pulled out of compare() so the nested
+    field paths can be unit-tested offline. This matters because nested extraction is
+    the most error-prone part of the tool: hallucination lives two levels down inside
+    `omniscienceBreakdown` with no top-level field named after it, and went unnoticed
+    for hours before a screenshot caught it. If a path here is wrong, a test fails now
+    instead of a metric silently reading None.
+    """
+    perf = (m.get("performanceByPromptType") or {}).get(prompt_type) or {}
+    var = m.get("outputSpeedVariance") or {}
+    return {
+        "slug": m["slug"],
+        "effort": (m.get("effort") or {}).get("label"),
+        "intelligenceIndex": m["intelligenceIndex"],
+        "iiEstimated": m["intelligenceIndexIsEstimated"],
+        "iiSource": m["performanceDataSource"]["type"],
+        "deprecated": m["deprecated"],
+        "price": blended(m, *mix),
+        "speed": perf.get("medianOutputSpeed"),
+        "speedP05": var.get("p05"),
+        "speedP95": var.get("p95"),
+        "hosts": m["hostModelCount"],
+        "evals": len(m["intelligenceIndexEvaluations"]),
+        "context": m["contextWindowTokens"],
+        "params": m.get("parameters"),
+        "activeParams": m.get("inferenceParametersActiveBillions"),
+        "license": m.get("licenseName"),
+        # Total output tokens to run the whole benchmark suite -- this is what the
+        # "cost to run the intelligence index" figure is actually spending on.
+        "suiteTokens": (m.get("canonicalIntelligenceIndexTokenCount") or {}).get("output"),
+        # Hallucination hides inside omniscienceBreakdown -- there is no top-level
+        # field named after it. The rate is CONDITIONAL on answering wrong (share of
+        # failures that are confabulations rather than abstentions), so it must be
+        # read next to accuracy: 14% hallucination at 9% accuracy is abstention, not
+        # honesty. Absolute confabulation = (1 - accuracy) * hallucination.
+        "accuracy": (m.get("omniscienceBreakdown") or {}).get("accuracy"),
+        "hallucination": (m.get("omniscienceBreakdown") or {}).get("hallucinationRate"),
+        # briefcaseBreakdown is the only place AA publishes an interval. Without it a
+        # 2-point gap between two models looks identical to a 200-point one.
+        "elo": ((m.get("briefcaseBreakdown") or {}).get("overall") or {}).get("elo"),
+        "eloLo": ((m.get("briefcaseBreakdown") or {}).get("overall") or {}).get("lower95ci"),
+        "eloHi": ((m.get("briefcaseBreakdown") or {}).get("overall") or {}).get("upper95ci"),
+        "isReasoning": m.get("isReasoning"),
+        "reasoningSec": (m.get("endToEndResponseTime") or {}).get("reasoning"),
+    }
+
+
 def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
     """Compare models, flagging the ways the raw numbers mislead.
 
@@ -131,44 +180,7 @@ def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
             warns.append("%s: not in catalogue; closest: %s"
                          % (s, difflib.get_close_matches(s, by_slug, n=3)))
             continue
-        perf = (m.get("performanceByPromptType") or {}).get(prompt_type) or {}
-        var = m.get("outputSpeedVariance") or {}
-        rows.append({
-            "slug": s,
-            "effort": (m.get("effort") or {}).get("label"),
-            "intelligenceIndex": m["intelligenceIndex"],
-            "iiEstimated": m["intelligenceIndexIsEstimated"],
-            "iiSource": m["performanceDataSource"]["type"],
-            "deprecated": m["deprecated"],
-            "price": blended(m, *mix),
-            "speed": perf.get("medianOutputSpeed"),
-            "speedP05": var.get("p05"),
-            "speedP95": var.get("p95"),
-            "hosts": m["hostModelCount"],
-            "evals": len(m["intelligenceIndexEvaluations"]),
-            "context": m["contextWindowTokens"],
-            "params": m.get("parameters"),
-            "activeParams": m.get("inferenceParametersActiveBillions"),
-            "license": m.get("licenseName"),
-            # Total output tokens to run the whole benchmark suite -- this is what the
-            # "cost to run the intelligence index" figure is actually spending on. Useful
-            # for sanity-checking a suite cost against a model's token appetite.
-            "suiteTokens": (m.get("canonicalIntelligenceIndexTokenCount") or {}).get("output"),
-            # Hallucination hides inside omniscienceBreakdown -- there is no top-level
-            # field named after it. The rate is CONDITIONAL on answering wrong (share of
-            # failures that are confabulations rather than abstentions), so it must be
-            # read next to accuracy: 14% hallucination at 9% accuracy is abstention, not
-            # honesty. Absolute confabulation = (1 - accuracy) * hallucination.
-            "accuracy": (m.get("omniscienceBreakdown") or {}).get("accuracy"),
-            "hallucination": (m.get("omniscienceBreakdown") or {}).get("hallucinationRate"),
-            # briefcaseBreakdown is the only place AA publishes an interval. Without it a
-            # 2-point gap between two models looks identical to a 200-point one.
-            "elo": ((m.get("briefcaseBreakdown") or {}).get("overall") or {}).get("elo"),
-            "eloLo": ((m.get("briefcaseBreakdown") or {}).get("overall") or {}).get("lower95ci"),
-            "eloHi": ((m.get("briefcaseBreakdown") or {}).get("overall") or {}).get("upper95ci"),
-            "isReasoning": m.get("isReasoning"),
-            "reasoningSec": (m.get("endToEndResponseTime") or {}).get("reasoning"),
-        })
+        rows.append(_row(m, mix, prompt_type))
     for r in rows:
         if r["iiEstimated"]:
             warns.append("%s: intelligence index is ESTIMATED (%s), not measured"
