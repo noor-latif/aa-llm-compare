@@ -46,7 +46,7 @@ with 89 fields each. Any slug works: the catalogue section is identical regardle
 
 ## Requirements
 
-Python 3.8+. **No third-party packages.** No API key.
+Python 3.9+ (CI-verified on 3.9, 3.10, 3.11, 3.12, 3.13). **No third-party packages.** No API key.
 
 ## Quickstart
 
