@@ -162,6 +162,7 @@ def _fake_model(**over):
         "intelligenceIndexIsEstimated": False,
         "performanceDataSource": {"type": "firstParty"},
         "deprecated": False,
+        "deprecatedTo": None,
         "price1mInputTokens": 0.15,
         "price1mOutputTokens": 0.50,
         "cacheHitPrice": 0.026,
@@ -226,6 +227,13 @@ class TestRow(unittest.TestCase):
                                                  "medium": {"medianOutputSpeed": 150.0}})
         self.assertEqual(a._row(m, prompt_type="medium")["speed"], 150.0)
         self.assertEqual(a._row(m, prompt_type="long")["speed"], 100.0)
+
+    def test_superseded_by_is_extracted(self):
+        # 375 of 381 deprecated models name their replacement. "deprecated" alone is a
+        # dead end; "superseded by X" is actionable.
+        r = a._row(_fake_model(deprecated=True, deprecatedTo="glm-4-6v"))
+        self.assertTrue(r["deprecated"])
+        self.assertEqual(r["supersededBy"], "glm-4-6v")
 
     def test_missing_nested_blocks_yield_none_not_crash(self):
         # 248/653 models have no omniscience data at all.

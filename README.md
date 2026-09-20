@@ -90,9 +90,11 @@ its `p05-p95` spread, `hosts`, `halluc%`, `acc`, and `context` (in thousands, to
 source's own display — which is what makes Kimi's 1049k visible against everyone else's
 1000k). `--json` exposes more than the table can fit, including `params` (total
 parameters), `activeParams` (active, i.e. MoE), `license`, `elo` with its interval,
-`context` in raw tokens, and `suiteTokens` — the total output tokens consumed running the
-whole benchmark suite, which is what the "cost to run the intelligence index" number is
-actually buying (DeepSeek: 253M output tokens for $477).
+`context` in raw tokens, `suiteTokens` — the total output tokens consumed running the whole
+benchmark suite, which is what the "cost to run the intelligence index" number is actually
+buying (DeepSeek: 253M output tokens for $477) — and `supersededBy`, the slug of whatever
+replaced a deprecated model. 375 of the 381 deprecated models name their own successor, so
+the warning reads `deprecated -- superseded by X` instead of stopping at "deprecated".
 
 One caveat on `context`: it reports `contextWindowTokens` exactly as served. For DeepSeek
 V4.1 Flash the source page shows a **different** figure — `~1,500k (estimated)` against the

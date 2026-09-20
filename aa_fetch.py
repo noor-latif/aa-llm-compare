@@ -133,6 +133,9 @@ def _row(m, mix=(0, 3, 1), prompt_type="long"):
         "iiEstimated": m["intelligenceIndexIsEstimated"],
         "iiSource": m["performanceDataSource"]["type"],
         "deprecated": m["deprecated"],
+        # 375 of the 381 deprecated models name their own replacement. Knowing a model
+        # is deprecated is a dead end; knowing what superseded it is actionable.
+        "supersededBy": m.get("deprecatedTo"),
         "price": blended(m, *mix),
         "speed": perf.get("medianOutputSpeed"),
         "speedP05": var.get("p05"),
@@ -186,7 +189,9 @@ def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
             warns.append("%s: intelligence index is ESTIMATED (%s), not measured"
                          % (r["slug"], r["iiSource"]))
         if r["deprecated"]:
-            warns.append("%s: deprecated" % r["slug"])
+            warns.append("%s: deprecated%s" % (
+                r["slug"], " -- superseded by %s" % r["supersededBy"]
+                if r["supersededBy"] else ""))
         if not r["evals"]:
             warns.append("%s: no per-eval breakdown behind its index" % r["slug"])
         if r["hosts"] is not None and r["hosts"] < 3:
