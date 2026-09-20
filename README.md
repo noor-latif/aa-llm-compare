@@ -259,13 +259,28 @@ and is a stated assumption, not a finding; pass `axis_weights={"cost": 3}` to sh
 | 5 | GPT-5.6 Luna | 3.75 | #5 | #2 | #3 | #5 |
 
 The top two tie but are different bets: GLM wins price and quality, DeepSeek wins speed and
-stability. Across all 69 trustworthy models the ordering reshuffles by emphasis. Ranked by
-**worst-case** position across four weightings (equal / cost 3x / quality 3x / speed 3x),
-**`ling-3-0-flash-fin` is the only model in the top 6 under all of them** (worst #5, best
-#1). `ling-3-0-flash-vl` reaches #7, `deepseek-v4-1-flash` #8, `deepseek-v4-flash-vision`
-#10 — and **only four models stay inside the top 10 across all four**. Contrast
+stability. Test robustness across **every dimension that moves the answer**, not just the obvious one.
+Ranking all 69 trustworthy models under four axis weightings (equal / cost 3x / quality 3x /
+speed 3x) at one price mix suggests `ling-3-0-flash-fin` is top-6 everywhere. Add the price
+mix as a second dimension — three mixes (0:3:1, 100:1:1, 0:100:1) × four weightings = 12
+scenarios — and **no model at all stays in the top 6**:
+
+| Model | worst case | best case |
+|---|---|---|
+| `ling-3-0-flash-fin` | **#7** | #1 |
+| `deepseek-v4-1-flash` | #8 | #2 |
+| `ling-3-0-flash-vl` | #9 | #1 |
+| `k2-horizon-375b-a23b` | #14 | #8 |
+| `deepseek-v4-flash-vision` | #15 | #1 |
+
+Only **three models stay inside the top 10 across all 12** (`ling-3-0-flash-fin`,
+`deepseek-v4-1-flash`, `ling-3-0-flash-vl`), and five inside the top 15. Contrast
 `claude-fable-5-1`: quality #3, but cost #51 and speed #39 — the most extreme specialist in
 the set, and a bad general default.
+
+This is the second correction to this section. Tie-merging moved the "most robust" answer
+once; varying the price mix removed the top-6 claim entirely. Both times the underlying
+numbers were correct and only the scope of the claim was wrong.
 
 Overlapping intervals are merged on the quality axis, so **35 of the 69 share a tied
 quality rank** (scored as the average of the positions they span). That is why these
