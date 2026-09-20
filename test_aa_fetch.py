@@ -103,6 +103,54 @@ class TestRanksAndTies(unittest.TestCase):
         self.assertEqual(a._ci_ties(rows), [])
 
 
+# A synthetic fragment of the RSC flight payload. The real one is ~2.9 MB;
+# what matters is that JSON objects sharing the `{"id":"<uuid>","slug":"` opener
+# appear, which is exactly the shape the regex matches. The creator object
+# (`zai`) intentionally has no `creator` key; the model (`glm-5-3`) does.
+# This fragment exercises both the discriminator and the duplicate-collapse.
+SAMPLE_FLIGHT = (
+    '0:["$","div",null,{}]\n'
+    '1:{"id":"11111111-1111-1111-1111-111111111111","slug":"zai","name":"Z AI"}\n'
+    '2:{"id":"22222222-2222-2222-2222-222222222222","slug":"glm-5-3","name":"GLM-5.3",'
+    '"creator":{"slug":"zai","name":"Z AI"},"intelligenceIndex":44.78}\n'
+    '3:{"id":"22222222-2222-2222-2222-222222222222","slug":"glm-5-3","name":"GLM-5.3",'
+    '"creator":{"slug":"zai","name":"Z AI"},"intelligenceIndex":44.78}\n'
+    '9:{"id":"33333333-3333-3333-3333-333333333333","slug":"cut-off"'
+    # truncated: should be skipped, not crash
+)
+
+
+class TestScan(unittest.TestCase):
+    """The RSC parser is the most fragile part of the tool. `{"id":"<uuid>","slug":"`
+    matches BOTH model objects and creator objects (`zai`, `openai`, ...), and on
+    the live per-model page 712 objects match but only 653 are models -- 59 are
+    creators. The `require={"creator"}` filter is what separates them, and a
+    key reorder on AA's side would break this silently. Offline tests fix that.
+    """
+
+    def test_finds_models_and_skips_creators(self):
+        models = a._scan(SAMPLE_FLIGHT, a._MODEL_START, require=("creator",))
+        self.assertEqual([m["slug"] for m in models], ["glm-5-3"])
+
+    def test_without_the_creator_filter_creators_leak_in(self):
+        # Demonstrates the classic gotcha: the shape match is identical for
+        # creators and models, so without the discriminator you ingest 9% junk.
+        both = a._scan(SAMPLE_FLIGHT, a._MODEL_START)
+        slugs = sorted(m["slug"] for m in both)
+        self.assertEqual(slugs, ["glm-5-3", "zai"])
+
+    def test_duplicate_objects_are_collapsed(self):
+        # The same model appears twice in SAMPLE_FLIGHT; _scan must dedupe.
+        self.assertEqual(len(a._scan(SAMPLE_FLIGHT, a._MODEL_START, require=("creator",))), 1)
+
+    def test_truncated_object_is_skipped_not_crashed(self):
+        # The unterminated line `9:{"id":...,"slug":"...` would raise
+        # raw_decode's ValueError. _scan catches and continues -- which is the
+        # difference between "didn't get all the models" and "got nothing".
+        out = a._scan(SAMPLE_FLIGHT, a._MODEL_START, require=("creator",))
+        self.assertEqual(len(out), 1)
+
+
 class TestBaseSlug(unittest.TestCase):
     """_base_slug() collapses effort variants into one family. This is the step
     that turns 104 fully-measured models into 69 distinct ones -- get it wrong
