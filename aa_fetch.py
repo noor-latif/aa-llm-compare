@@ -265,10 +265,43 @@ def composite(slugs, weights=None):
     return dict(sorted(scores.items(), key=lambda kv: -kv[1]))
 
 
-def _ranks(values, high_better):
-    """slug -> 1-based rank. Ranking sidesteps incomparable units entirely."""
+def _ranks(values, high_better, ties=()):
+    """slug -> 1-based rank. Ranking sidesteps incomparable units entirely.
+
+    `ties` is a sequence of slug groups whose confidence intervals overlap. Members share
+    the average of their positions, so a tie costs you nothing numerically but the
+    ordering stops claiming a separation the data does not support.
+    """
     order = sorted(values, key=lambda s: -values[s] if high_better else values[s])
-    return {s: i + 1 for i, s in enumerate(order)}
+    rank = {s: i + 1 for i, s in enumerate(order)}
+    for group in ties:
+        members = [s for s in order if s in group]
+        if len(members) < 2:
+            continue
+        shared = sum(rank[s] for s in members) / len(members)
+        for s in members:
+            rank[s] = shared
+    return rank
+
+
+def _ci_ties(rows):
+    """Group models whose 95% intervals overlap.
+
+    Overlap is chained, so a run of mutually-adjacent overlaps becomes one group -- a
+    deliberate simplification, and conservative: it only ever merges, never reorders.
+    """
+    rated = sorted((r for r in rows if r["elo"] is not None), key=lambda r: -r["elo"])
+    groups, cur = [], []
+    for r in rated:
+        if cur and r["eloHi"] >= cur[-1]["eloLo"]:
+            cur.append(r)
+        else:
+            if cur:
+                groups.append(cur)
+            cur = [r]
+    if cur:
+        groups.append(cur)
+    return [frozenset(r["slug"] for r in g) for g in groups if len(g) > 1]
 
 
 def rank(slugs, mix=(0, 3, 1), weights=None, axis_weights=None, with_stability=True):
@@ -284,7 +317,8 @@ def rank(slugs, mix=(0, 3, 1), weights=None, axis_weights=None, with_stability=T
     present = [r["slug"] for r in rows]
     qual = (composite(present, weights) if weights
             else {r["slug"]: r["intelligenceIndex"] for r in rows})
-    axes = [("quality", _ranks(qual, True)),
+    # Only the quality axis has published intervals, so only it can hold a tie.
+    axes = [("quality", _ranks(qual, True, _ci_ties(rows))),
             ("cost", _ranks({r["slug"]: r["price"] for r in rows if r["price"] is not None}, False)),
             ("speed", _ranks({r["slug"]: r["speed"] for r in rows if r["speed"]}, True))]
     if with_stability:
@@ -441,6 +475,12 @@ def demo():
     cheap = rank(five, axis_weights={"cost": 4})
     assert [r["slug"] for r in flat] != [r["slug"] for r in cheap], "cost axis had no effect"
     assert len(flat) == len(five) and all(r["axes"] for r in flat)
+
+    # _ranks is pure, so ties can be tested without waiting on overlapping real models.
+    plain = _ranks({"a": 3, "b": 2, "c": 1}, True)
+    assert plain == {"a": 1, "b": 2, "c": 3}, plain
+    tied = _ranks({"a": 3, "b": 2, "c": 1}, True, ties=[frozenset({"a", "b"})])
+    assert tied["a"] == tied["b"] == 1.5 and tied["c"] == 3, tied
 
     st = stability(["deepseek-v4-1-flash", "gpt-5-6-luna"])
     assert len(st) == 2 and all(0 < r["days"] <= 7 for r in st), f"stability looks wrong: {st}"

@@ -259,10 +259,19 @@ and is a stated assumption, not a finding; pass `axis_weights={"cost": 3}` to sh
 | 5 | GPT-5.6 Luna | 3.75 | #5 | #2 | #3 | #5 |
 
 The top two tie but are different bets: GLM wins price and quality, DeepSeek wins speed and
-stability. Across all 69 trustworthy models the ordering reshuffles by emphasis — and
-**`deepseek-v4-1-flash` is the only model in the top 6 under all four weightings**. Best at
-nothing, never bad at anything. Contrast `claude-fable-5-1`: quality #1, cost #62 of 69,
-speed #50.
+stability. Across all 69 trustworthy models the ordering reshuffles by emphasis. Ranked by
+**worst-case** position across four weightings (equal / cost 3x / quality 3x / speed 3x),
+**`ling-3-0-flash-fin` is the only model in the top 6 under all of them** (worst #5, best
+#1). `ling-3-0-flash-vl` reaches #7, `deepseek-v4-1-flash` #8, `deepseek-v4-flash-vision`
+#10 — and **only four models stay inside the top 10 across all four**. Contrast
+`claude-fable-5-1`: quality #3, but cost #51 and speed #39 — the most extreme specialist in
+the set, and a bad general default.
+
+Overlapping intervals are merged on the quality axis, so **35 of the 69 share a tied
+quality rank** (scored as the average of the positions they span). That is why these
+figures differ from a strict ranking, and it **corrected an earlier claim in this README**:
+before ties were merged, `deepseek-v4-1-flash` looked like the top-6-everywhere pick. Its
+worst case is actually #8. Merging the ties moved the answer.
 
 ## The endpoints
 
