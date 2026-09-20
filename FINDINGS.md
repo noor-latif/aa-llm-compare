@@ -139,6 +139,29 @@ only written the second kind.
 
 ---
 
+## Reproducing these numbers
+
+Every figure here comes from one source and can be re-derived without trusting me:
+
+```bash
+python3 -m unittest test_aa_fetch.py         # 39 offline tests, no network needed
+python3 aa_fetch.py rank --json              # the 69 comparable models, tie-merged
+python3 aa_fetch.py compare <a> <b> --scores # per-eval scores + interval verdict
+```
+
+Two cautions if you do:
+
+- **The counts drift.** They were taken on 2026-09-20 and the catalogue is live, so the
+  653 / 381 / 497 numbers move by a few models over time.
+- **Tie counts depend on how you count.** "35 of 69 share a tied quality rank" counts models
+  with a fractional rank; `rank` prints 33 rows with a composite score, because two are
+  missing a different axis. Same data, two defensible conditions — worth knowing before you
+  conclude one of us is wrong.
+
+Both headline findings come from `briefcaseBreakdown.overall`, the single evaluation that
+publishes a confidence interval. If the site stops publishing it, findings #1 and #6 can no
+longer be checked at all.
+
 ## What I'd actually take away
 
 1. **Check error bars before believing a ranking.** Where they overlap, say "tied" and mean it.
