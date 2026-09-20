@@ -258,8 +258,17 @@ and is a stated assumption, not a finding; pass `axis_weights={"cost": 3}` to sh
 | 4 | GLM-5.3 | 3.25 | **#1** | #5 | #5 | #2 |
 | 5 | GPT-5.6 Luna | 3.75 | #5 | #2 | #3 | #5 |
 
-The top two tie but are different bets: GLM wins price and quality, DeepSeek wins speed and
-stability. Test robustness across **every dimension that moves the answer**, not just the obvious one.
+The top two tie *in this one scenario*, and that is worth stressing: the tie is
+scenario-specific. Sweeping 5 price mixes × 4 axis weightings = 20 scenarios,
+`glm-5-3-flash` takes #1 in **12 of 20 and is never worse than #3**, while
+`deepseek-v4-1-flash` wins 3 and `gemini-3-8-flash` wins 4 (all four of those under
+speed-heavy weighting). At the cache-heavy `100:1:1` mix, DeepSeek leads on three of the
+four weightings — the crossover described in trap #4 showing up again. So among these five,
+GLM 5.3 Flash is the robust pick rather than half of a tie; `glm-5-3` wins once and is #5
+at worst, and `gpt-5-6-luna` never wins at all.
+
+Still different bets underneath: GLM 5.3 Flash wins on price and quality, DeepSeek on speed
+and stability. Test robustness across **every dimension that moves the answer**, not just the obvious one.
 Ranking all 69 trustworthy models under four axis weightings (equal / cost 3x / quality 3x /
 speed 3x) at one price mix suggests `ling-3-0-flash-fin` is top-6 everywhere. Add the price
 mix as a second dimension — three mixes (0:3:1, 100:1:1, 0:100:1) × four weightings = 12
