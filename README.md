@@ -79,6 +79,7 @@ Flags work on `compare`, `trustworthy` and `rank`:
 |---|---|
 | `--mix 0:3:1` | Price mix as `cached:input:output` (default `0:3:1`) |
 | `--evals` | Rank models within each of the 10 evals behind the index |
+| `--scores` | Every benchmark score side by side: the 10 composite evals **plus** all standalone fields with data, and an explicit list of the ones with none. Ranks hide gap sizes (1526 vs 1461 and 1526 vs 1525 both render as "#1 vs #2") — use this when you want magnitudes. |
 | `--weights k=2,...` | Weight those evals, e.g. `--weights terminalbench-4-0=3` |
 | `--stability` | 7-day speed swing and drift |
 | `--rank` | Collapse every axis into a single ordering |
