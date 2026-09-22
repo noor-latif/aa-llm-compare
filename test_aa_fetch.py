@@ -175,7 +175,8 @@ def _fake_model(**over):
         "inferenceParametersActiveBillions": 18,
         "licenseName": "MIT",
         "canonicalIntelligenceIndexTokenCount": {"output": 180_681_476},
-        "omniscienceBreakdown": {"accuracy": 0.275, "hallucinationRate": 0.276},
+        # omniscience fields are deliberately absent -- many models have none. Tests
+        # that care add whichever shape they are exercising.
         "briefcaseBreakdown": {"overall": {"elo": 1461, "lower95ci": 1451, "upper95ci": 1470}},
         "isReasoning": True,
         "endToEndResponseTime": {"reasoning": 21.0},
@@ -204,11 +205,21 @@ class TestRow(unittest.TestCase):
         self.assertEqual(r["activeParams"], 18)
         self.assertEqual(r["license"], "MIT")
 
-    def test_nested_hallucination_is_extracted(self):
-        # The regression that motivated this class: no top-level field, two levels in.
-        r = a._row(_fake_model())
+    def test_hallucination_is_extracted(self):
+        # Current shape (AA flattened these to top level on 2026-09-22).
+        r = a._row(_fake_model(omniscienceAccuracy=0.275, omniscienceHallucinationRate=0.276))
         self.assertEqual(r["accuracy"], 0.275)
         self.assertEqual(r["hallucination"], 0.276)
+
+    def test_legacy_nested_omniscience_still_reads(self):
+        # The old shape, where hallucination sat two levels down inside
+        # omniscienceBreakdown with no top-level field named after it -- and went
+        # unnoticed for hours before a screenshot caught it. A staged rollout can
+        # still serve this, so both paths have to work.
+        r = a._row(_fake_model(omniscienceBreakdown={"accuracy": 0.1,
+                                                    "hallucinationRate": 0.2}))
+        self.assertEqual(r["accuracy"], 0.1)
+        self.assertEqual(r["hallucination"], 0.2)
 
     def test_nested_elo_interval_is_extracted(self):
         r = a._row(_fake_model())
@@ -236,7 +247,7 @@ class TestRow(unittest.TestCase):
         self.assertEqual(r["supersededBy"], "glm-4-6v")
 
     def test_missing_nested_blocks_yield_none_not_crash(self):
-        # 248/653 models have no omniscience data at all.
+        # 125/656 models have no omniscience data at all.
         r = a._row(_fake_model(omniscienceBreakdown=None, briefcaseBreakdown=None))
         self.assertIsNone(r["accuracy"])
         self.assertIsNone(r["hallucination"])

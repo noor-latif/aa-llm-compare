@@ -114,18 +114,30 @@ def blended(m, cached=0, inp=3, out=1):
     return (cached * ci + inp * i + out * o) / (cached + inp + out)
 
 
+def _omniscience(m):
+    """Accuracy and hallucination rate, in either shape AA has served them.
+
+    Until 2026-09-22 these were nested in `omniscienceBreakdown`; they are now
+    top-level (`omniscienceAccuracy`, `omniscienceHallucinationRate`). Read both --
+    a staged rollout can serve either, and a missing key must not silently become
+    None, which is what demo() caught when the flattening landed.
+    """
+    nested = m.get("omniscienceBreakdown") or {}
+    return (m.get("omniscienceAccuracy", nested.get("accuracy")),
+            m.get("omniscienceHallucinationRate", nested.get("hallucinationRate")))
+
+
 def _row(m, mix=(0, 3, 1), prompt_type="long"):
     """Turn one catalogue model into a comparison row.
 
-    Pure -- takes a model dict, returns a dict. Pulled out of compare() so the nested
-    field paths can be unit-tested offline. This matters because nested extraction is
-    the most error-prone part of the tool: hallucination lives two levels down inside
-    `omniscienceBreakdown` with no top-level field named after it, and went unnoticed
-    for hours before a screenshot caught it. If a path here is wrong, a test fails now
-    instead of a metric silently reading None.
+    Pure -- takes a model dict, returns a dict. Pulled out of compare() so the field
+    paths can be unit-tested offline. This matters because extraction is the most
+    error-prone part of the tool: a wrong path reads None silently, and a metric
+    missing from a comparison row looks identical to a model that has no data.
     """
     perf = (m.get("performanceByPromptType") or {}).get(prompt_type) or {}
     var = m.get("outputSpeedVariance") or {}
+    accuracy, hallucination = _omniscience(m)
     return {
         "slug": m["slug"],
         "effort": (m.get("effort") or {}).get("label"),
@@ -149,13 +161,12 @@ def _row(m, mix=(0, 3, 1), prompt_type="long"):
         # Total output tokens to run the whole benchmark suite -- this is what the
         # "cost to run the intelligence index" figure is actually spending on.
         "suiteTokens": (m.get("canonicalIntelligenceIndexTokenCount") or {}).get("output"),
-        # Hallucination hides inside omniscienceBreakdown -- there is no top-level
-        # field named after it. The rate is CONDITIONAL on answering wrong (share of
-        # failures that are confabulations rather than abstentions), so it must be
-        # read next to accuracy: 14% hallucination at 9% accuracy is abstention, not
-        # honesty. Absolute confabulation = (1 - accuracy) * hallucination.
-        "accuracy": (m.get("omniscienceBreakdown") or {}).get("accuracy"),
-        "hallucination": (m.get("omniscienceBreakdown") or {}).get("hallucinationRate"),
+        # The rate is CONDITIONAL on answering wrong (share of failures that are
+        # confabulations rather than abstentions), so it must be read next to
+        # accuracy: 14% hallucination at 9% accuracy is abstention, not honesty.
+        # Absolute confabulation = (1 - accuracy) * hallucination.
+        "accuracy": accuracy,
+        "hallucination": hallucination,
         # briefcaseBreakdown is the only place AA publishes an interval. Without it a
         # 2-point gap between two models looks identical to a 200-point one.
         "elo": ((m.get("briefcaseBreakdown") or {}).get("overall") or {}).get("elo"),
