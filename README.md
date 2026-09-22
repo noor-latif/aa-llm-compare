@@ -9,7 +9,7 @@ gain auth without notice, and **for anything you depend on in production or comm
 should use their official API.** One cached fetch, never polling.
 
 > **Just want the findings?** → **[What LLM leaderboards hide](FINDINGS.md)** — no code:
-> why 31 of 68 adjacent leaderboard pairs are statistically indistinguishable, why the
+> why about half of adjacent leaderboard pairs are indistinguishable, why the
 > hallucination rate inverts when read alone, and the rest.
 
 ```bash
@@ -40,7 +40,7 @@ Python 3.9+ (CI-verified on 3.9–3.13). No third-party packages. No API key.
 git clone <this repo> && cd aa-llm-compare
 python3 -m unittest test_aa_fetch.py   # 40 offline tests, no network, <1ms
 python3 aa_fetch.py demo               # canary: hits the live site, asserts it still behaves
-python3 aa_fetch.py rank               # the ~72 comparable models, in one ordering
+python3 aa_fetch.py rank               # the comparable models, in one ordering
 ```
 
 `demo` is the tripwire. It asserts the catalogue shape, that `?compare=` is still ignored,
@@ -54,7 +54,7 @@ that `blended()` reproduces every published price ratio, and that each guard act
 | `demo` | Self-check against the live site |
 | `catalogue <file.json>` | Dump the whole catalogue, all fields |
 | `compare <slug>...` | Side-by-side table + warnings |
-| `trustworthy` | The ~72 models that can actually be compared |
+| `trustworthy` | The models that can actually be compared |
 | `rank` | Collapse quality/cost/speed/stability into one ordering |
 
 Flags work on `compare`, `trustworthy` and `rank`:
@@ -78,7 +78,7 @@ The table shows `slug`, `effort`, index, `$/M` at your mix, `tok/s` with its `p0
 spread, `hosts`, `halluc%`, `acc`, `context`. `--json` exposes more than fits: `params`,
 `activeParams` (MoE-active), `license`, `elo` with its interval, `suiteTokens` (total output
 tokens for the whole benchmark suite), `cacheWrite` — the cost of *populating* a cache, which
-no published blend includes and which exceeds fresh input on 13 of the 72 comparable models —
+no published blend includes and which exceeds fresh input on roughly one comparable model in five —
 and `supersededBy`, the slug that replaced a deprecated model.
 
 Library use:
@@ -89,7 +89,7 @@ import aa_fetch
 models = aa_fetch.catalogue()                           # the whole catalogue
 aa_fetch.blended(models[0], cached=100, inp=1, out=1)   # price at any workload mix
 aa_fetch.compare(["glm-5-3", "gemini-3-8-flash"])       # (rows, warnings)
-aa_fetch.trustworthy()                                  # ~72 comparable models
+aa_fetch.trustworthy()                                  # the comparable models
 aa_fetch.rank(["glm-5-3", "glm-5-3-flash"], axis_weights={"cost": 3})
 ```
 
@@ -130,5 +130,6 @@ These are **undocumented internal routes**, not a supported API.
 
 MIT — see [LICENSE](LICENSE).
 
-Findings dated 2026-09-22 against a 656-model catalogue. The counts drift as the catalogue
-changes; the properties behind them are structural.
+Findings dated 2026-09-22. **The catalogue grows ~10 models/day** (653 -> 656 -> 673 in two
+days), so no count in these docs stays true for long — they are stated as proportions for
+that reason. The properties behind them are structural.

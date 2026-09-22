@@ -12,8 +12,8 @@ Figures are Artificial Analysis's public data as of 2026-09-22. The tool behind 
 ## 1. Nearly half the leaderboard is noise
 
 The catalogue publishes a 95% confidence interval for one evaluation (aa-briefcase). Across
-the 72 models with enough data to compare, **31 of the 66 adjacent pairs among those that
-publish an interval overlap** — about half.
+the comparable models, **about half of the adjacent pairs among those that
+publish an interval overlap**.
 
 ```
 claude-fable-5-1 (1678)  and  claude-opus-5 (1673)     overlap
@@ -21,8 +21,8 @@ claude-opus-5    (1673)  and  grok-4-7 (1657)          overlap
 qwen3-8-max      (1640)  and  muse-spark-1-3 (1597)    separated -- a real gap
 ```
 
-Merging the intervals rather than ranking them, **43 of the 72 share a tied quality rank**
-(41 of those also carry a composite score; the other two are missing a different axis —
+Merging the intervals rather than ranking them, **roughly three in five share a tied quality rank**
+(most of those also carry a composite score; a couple are missing a different axis —
 finding #9 in miniature).
 
 **So:** before paying attention to a rank, check the interval. A 65-point gap with disjoint
@@ -73,7 +73,7 @@ know which model is cheaper.
 ### And caching can cost more than not caching
 
 There is a third price component that no blended figure includes: `cacheWritePrice`, what you
-pay to *populate* the cache. **13 of the 72 comparable models price a cache write above fresh
+pay to *populate* the cache. **Roughly one comparable model in five prices a cache write above fresh
 input** — and AA's own published blend ignores it (our `blended()` reproduces their number to
 1e-9, so we are faithfully reproducing a figure that omits a cost you may be paying).
 
@@ -94,8 +94,8 @@ property of your traffic, not the model, so no blend can answer this for you.
 
 ## 4. Two-thirds of the catalogue is retired or guessed at
 
-- **381 of 656 models are deprecated.** Most carry a pointer to their replacement.
-- **496 of 656 intelligence indices are estimated**, not measured. The estimate is labelled
+- **58% of the catalogue is deprecated.** Most carry a pointer to their replacement.
+- **76% of intelligence indices are estimated**, not measured. The estimate is labelled
   in the data; a table of scores doesn't show you which rows are which.
 
 **So:** a large fraction of any "compare all models" exercise compares things that are
@@ -120,7 +120,7 @@ are on incomparable scales (`aa-briefcase` ~1460, `automationbench` ~0.60):
 | terminalbench-4-0 | #1 | #2 | #4 | #3 | #5 |
 | **wins** | **4** | **0** | **2** | **2** | **2** |
 
-GLM-5.3 tops the composite (44.78) and wins 4 of 10, but is **dead last on long-context
+GLM-5.3 tops the composite and wins the most sub-evals, but is **dead last on long-context
 reasoning and gdp-pdf**. And weighting the evals moves the winner outright:
 
 | Emphasis | Winner |
@@ -178,7 +178,7 @@ model that reports it. Don't chart it.
 
 ## 9. Missing data gets scored as good data — a bug I wrote myself
 
-**6 of the 72 comparable models have no published price at all** — open-weights entries with
+**A handful of the comparable models have no published price at all** — open-weights entries with
 zero hosts. They pass every quality filter and still cannot be cost-ranked.
 
 That is also what caused the bug. The ranking combines axes (quality, cost, speed, stability)
@@ -210,8 +210,9 @@ Across the five reference models, 5 price mixes × 4 axis weightings = 20 scenar
 | GLM-5.3 | 0 | #5 |
 | GPT-5.6 Luna | 0 | #5 |
 
-GLM 5.3 Flash wins 13 of 20 and is never worse than #3, while GLM-5.3 — which tops the plain
-composite — wins **zero**. But widen to all 72 comparable models and sweep 3 mixes × 4
+GLM 5.3 Flash wins about two thirds of the scenarios and is never worse than #3, while
+GLM-5.3 — which tops the plain composite — wins **zero**. But widen to the whole comparable
+set and sweep 3 mixes × 4
 weightings = 12 scenarios, and **no model at all stays in the top 6.** Only two stay in the
 top 10. The spread is brutal: `gpt-6-astra` ranges from #11 to #63 depending on the scenario.
 
@@ -243,7 +244,7 @@ so **one week is the ceiling**. This is a stability check, never a history sourc
 
 ```bash
 python3 -m unittest test_aa_fetch.py          # 40 offline tests, no network
-python3 aa_fetch.py rank --json               # the 72 comparable models, tie-merged
+python3 aa_fetch.py rank --json               # the comparable models, tie-merged
 python3 aa_fetch.py compare <a> <b> --scores  # per-eval scores + interval verdict
 python3 aa_fetch.py compare <a> <b> --stability  # the 7-day drift in finding #11
 ```
@@ -254,11 +255,11 @@ quoting a speed at the default is safe. Worth writing down so nobody re-derives 
 
 Two cautions:
 
-- **Everything here drifts, not just the counts.** Taken 2026-09-22 against a live catalogue.
-  The counts (656 / 381 / 496) move by a few models, and the individual figures move too —
-  speeds especially, which is finding #11. Re-run the commands rather than quoting these.
-  The proportions are the finding; every number is one measurement.
-- **Tie counts depend on how you count.** "43 of 72 share a tied quality rank" counts models
+- **Everything here drifts, not just the counts.** Taken 2026-09-22 against a live catalogue. **Measured drift: the catalogue went
+  653 -> 656 -> 673 within two days, roughly ten models a day, and the comparable set
+  69 -> 72 -> 77.** Speeds move faster still, which is finding #11. Every number below is one
+  measurement; the proportions are the claim. Re-run the commands rather than quoting these.
+- **Tie counts depend on how you count.** "roughly three in five share a tied quality rank" counts models
   with a fractional rank; `rank` prints 41 rows with a composite score, because two are
   missing another axis. Same data, two defensible conditions — worth knowing before you
   conclude one of us is wrong.
