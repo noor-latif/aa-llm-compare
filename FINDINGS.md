@@ -129,8 +129,8 @@ four times. `trustworthy()` collapses these.
 ## 7. A median speed without its spread is not a speed
 
 `outputSpeedVariance` carries `p05/q25/median/q75/p95`, and `hostModelCount` says how many
-providers back it. Gemini's 305 tok/s spans 233–482 across **4 hosts**; GLM-5.3's 72.1 spans
-38–118 across **22 hosts**.
+providers back it. Gemini 3.8 Flash's 343.5 tok/s spans 230–456 across **4 hosts**; GLM-5.3's
+61.0 spans 30–94 across **22 hosts**.
 
 **So:** the faster number is the less reliable one. Quote the spread and the sample size, or
 don't quote it.
@@ -232,8 +232,10 @@ quoting a speed at the default is safe. Worth writing down so nobody re-derives 
 
 Two cautions:
 
-- **The counts drift.** Taken 2026-09-22 against a live catalogue; 656 / 381 / 496 move by a
-  few models over time. The proportions are the finding — the counts are one measurement.
+- **Everything here drifts, not just the counts.** Taken 2026-09-22 against a live catalogue.
+  The counts (656 / 381 / 496) move by a few models, and the individual figures move too —
+  speeds especially, which is finding #11. Re-run the commands rather than quoting these.
+  The proportions are the finding; every number is one measurement.
 - **Tie counts depend on how you count.** "43 of 72 share a tied quality rank" counts models
   with a fractional rank; `rank` prints 41 rows with a composite score, because two are
   missing another axis. Same data, two defensible conditions — worth knowing before you
