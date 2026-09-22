@@ -69,16 +69,17 @@ Flags work on `compare`, `trustworthy` and `rank`:
 | `--rank` | Collapse every axis into a single ordering |
 | `--json` | Machine-readable output |
 
-Ten warnings fire automatically on `compare`. **Three do not**, because acting on them
-costs an extra request or only means something for your specific workload — the price mix
+Warnings fire automatically on `compare`. **Three things are not warnings**, because acting on
+them costs an extra request or only means something for your specific workload — the price mix
 (`--mix`), composite blind spots (`--scores` / `--evals` / `--weights`), and speed drift
-(`--stability`). Treat the automatic ones as the floor, not the ceiling.
+(`--stability`). Treat the automatic warnings as the floor, not the ceiling.
 
 The table shows `slug`, `effort`, index, `$/M` at your mix, `tok/s` with its `p05-p95`
 spread, `hosts`, `halluc%`, `acc`, `context`. `--json` exposes more than fits: `params`,
 `activeParams` (MoE-active), `license`, `elo` with its interval, `suiteTokens` (total output
-tokens for the whole benchmark suite), and `supersededBy` — the slug that replaced a
-deprecated model, so the warning reads `deprecated -- superseded by X`.
+tokens for the whole benchmark suite), `cacheWrite` — the cost of *populating* a cache, which
+no published blend includes and which exceeds fresh input on 13 of the 72 comparable models —
+and `supersededBy`, the slug that replaced a deprecated model.
 
 Library use:
 

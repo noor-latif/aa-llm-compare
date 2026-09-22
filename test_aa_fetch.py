@@ -233,6 +233,25 @@ class TestRow(unittest.TestCase):
         self.assertAlmostEqual(a._row(_fake_model(), mix=(0, 3, 1))["price"], 0.2375)
         self.assertAlmostEqual(a._row(_fake_model(), mix=(7, 2, 1))["price"], 0.0982)
 
+    def test_cache_write_above_input_is_flagged(self):
+        # 13 of 72 comparable models price a cache write above fresh input. The
+        # observed pattern is 1.25x input (claude-fable-5-1: $12.50/M vs $10/M;
+        # claude-4-5-haiku-reasoning: $1.25/M vs $1/M). No published blend shows
+        # it, so this flag is the only place the dimension is visible.
+        r = a._row(_fake_model(cacheWritePrice=12.5, price1mInputTokens=10.0))
+        self.assertEqual(r["cacheWrite"], 12.5)
+        self.assertTrue(r["cacheWriteOverInput"])
+        self.assertTrue(a._row(_fake_model(cacheWritePrice=1.25,
+                                          price1mInputTokens=1.0))["cacheWriteOverInput"])
+
+    def test_cache_write_at_or_below_input_is_not_flagged(self):
+        # Equal is not "more expensive" -- gemini-3-8-flash is exactly 0.75/0.75.
+        self.assertFalse(a._row(_fake_model(cacheWritePrice=1.0,
+                                            price1mInputTokens=1.0))["cacheWriteOverInput"])
+        self.assertFalse(a._row(_fake_model(cacheWritePrice=0.075,
+                                            price1mInputTokens=0.75))["cacheWriteOverInput"])
+        self.assertFalse(a._row(_fake_model())["cacheWriteOverInput"])  # no write price
+
     def test_speed_reads_the_requested_prompt_type(self):
         m = _fake_model(performanceByPromptType={"long": {"medianOutputSpeed": 100.0},
                                                  "medium": {"medianOutputSpeed": 150.0}})

@@ -151,6 +151,15 @@ def _row(m, mix=(0, 3, 1), prompt_type="long"):
         # is deprecated is a dead end; knowing what superseded it is actionable.
         "supersededBy": m.get("deprecatedTo"),
         "price": blended(m, *mix),
+        "inputPrice": m.get("price1mInputTokens"),
+        # Caching can cost MORE than not caching. 13 of the 72 comparable models price a
+        # cache write above fresh input (claude-fable-5-1: $12.50/M write vs $10/M input),
+        # so a low hit rate makes caching a loss. blended() ignores this, and so does AA's
+        # own published blend -- verified, blended() reproduces it to 1e-9 -- which makes
+        # this flag the only place the dimension is visible at all. No blend is attempted:
+        # it would need a write rate, which is a property of your workload, not the model.
+        "cacheWrite": m.get("cacheWritePrice"),
+        "cacheWriteOverInput": (m.get("cacheWritePrice") or 0) > (m.get("price1mInputTokens") or 0),
         "speed": perf.get("medianOutputSpeed"),
         "speedP05": var.get("p05"),
         "speedP95": var.get("p95"),
@@ -216,6 +225,10 @@ def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
                          % r["slug"])
         if r["hallucination"] is None:
             warns.append("%s: no omniscience/hallucination data" % r["slug"])
+        if r["cacheWriteOverInput"]:
+            warns.append("%s: cache write $%.2f/M exceeds fresh input $%.2f/M -- below a "
+                         "high hit rate, caching this model costs more than not caching it"
+                         % (r["slug"], r["cacheWrite"], r["inputPrice"]))
     # A reasoning model reporting 0s of reasoning time has not had its reasoning timed --
     # the cost is silently folded into "input", which is why some TTFC figures are absurd.
     for r in rows:
@@ -581,6 +594,9 @@ def demo():
     hal = {r["slug"]: r["hallucination"] for r in rows}
     assert hal["glm-5-3"] is not None, "hallucination rate missing from compare()"
     assert 0 < hal["glm-5-3"] < 1, hal
+    # A cache write can cost more than fresh input, and no published blend shows it.
+    _, cw = compare(["claude-fable-5-1"])
+    assert any("cache write" in w for w in cw), "cache-write guard did not fire"
     # Luna reports 0s reasoning on a reasoning model: the timing-gap guard must fire.
     assert any("reasoning time reported as 0s" in w for w in warns), warns
     assert any(r["elo"] for r in rows), "no confidence intervals parsed"

@@ -70,6 +70,28 @@ irrelevant — GLM 5.3 Flash wins at every realistic mix.
 **So:** compute the price at your own mix. If you don't know your cache-hit rate, you don't
 know which model is cheaper.
 
+### And caching can cost more than not caching
+
+There is a third price component that no blended figure includes: `cacheWritePrice`, what you
+pay to *populate* the cache. **13 of the 72 comparable models price a cache write above fresh
+input** — and AA's own published blend ignores it (our `blended()` reproduces their number to
+1e-9, so we are faithfully reproducing a figure that omits a cost you may be paying).
+
+| Model | cache write | cache hit | fresh input |
+|---|---|---|---|
+| `claude-fable-5-1` | **$12.50** | $0.25 | $10.00 |
+| `gpt-6-astra` | **$12.50** | $1.00 | $10.00 |
+| `claude-opus-5` | **$6.25** | $0.50 | $5.00 |
+| `gpt-5-6-sol` | **$5.00** | $0.40 | $4.00 |
+| `gemini-3-8-flash` | $0.75 | $0.075 | $0.75 |
+
+For these models a cache write costs **more than sending the tokens fresh**, so caching is a
+loss until your hit rate is high enough to amortise the writes. `compare()` flags them.
+
+**So:** "cache-heavy workloads are cheaper" is true on average and false per model. Check
+whether the model charges more to write a cache than to skip it — and note the write rate is a
+property of your traffic, not the model, so no blend can answer this for you.
+
 ## 4. Two-thirds of the catalogue is retired or guessed at
 
 - **381 of 656 models are deprecated.** Most carry a pointer to their replacement.
