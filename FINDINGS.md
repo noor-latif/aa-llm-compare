@@ -156,11 +156,14 @@ model that reports it. Don't chart it.
 
 ## 9. Missing data gets scored as good data — a bug I wrote myself
 
-The ranking combines axes (quality, cost, speed, stability) by averaging. Models with no
-published price have no cost axis — so they were averaged over the axes they *did* have. A
-model measured on one axis was compared against models measured on three: a quality-only
-model ranked #1 would have scored 1.00 and appeared to beat a model that was top-3 on
-everything.
+**6 of the 72 comparable models have no published price at all** — open-weights entries with
+zero hosts. They pass every quality filter and still cannot be cost-ranked.
+
+That is also what caused the bug. The ranking combines axes (quality, cost, speed, stability)
+by averaging, and those six have no cost axis — so they were averaged over the axes they *did*
+have. A model measured on one axis was compared against models measured on three: a
+quality-only model ranked #1 would have scored 1.00 and appeared to beat a model that was
+top-3 on everything.
 
 The fix was to refuse to score such models and say why. The general rule is worth more than
 the bug: **when data is missing, the honest output is a gap, not a number.** Averaging over
@@ -170,15 +173,62 @@ It survived every test I had written, because all of them used models with compl
 Edge cases with *missing fields* are a different test class from malformed input, and I had
 only written the second kind.
 
+## 10. The winner depends on the scenario you didn't sweep
+
+Every ranking embeds assumptions — what you weight, what your traffic mix is. Sweep them and
+the answer moves.
+
+Across the five reference models, 5 price mixes × 4 axis weightings = 20 scenarios:
+
+| Model | wins | worst position |
+|---|---|---|
+| GLM 5.3 Flash | **13** | #3 |
+| Gemini 3.8 Flash | 5 | #4 |
+| DeepSeek V4.1 Flash | 2 | #4 |
+| GLM-5.3 | 0 | #5 |
+| GPT-5.6 Luna | 0 | #5 |
+
+GLM 5.3 Flash wins 13 of 20 and is never worse than #3, while GLM-5.3 — which tops the plain
+composite — wins **zero**. But widen to all 72 comparable models and sweep 3 mixes × 4
+weightings = 12 scenarios, and **no model at all stays in the top 6.** Only two stay in the
+top 10. The spread is brutal: `gpt-6-astra` ranges from #11 to #63 depending on the scenario.
+
+**So:** report the worst case, not the best. A model that wins one emphasis is a bet on that
+emphasis. And "no model survives the sweep" is a legitimate, useful finding — it means the
+question was underspecified, not that the analysis failed.
+
+## 11. Some headline speeds are still moving
+
+A speed figure is a snapshot. Seven daily points per model:
+
+| Model | 7-day median | range | swing | drift |
+|---|---|---|---|---|
+| GLM 5.3 Flash | 99.3 | 56.4–126.6 | **70.7%** | −51.4% |
+| GPT-5.6 Luna | 145.3 | 115.9–183.3 | 46.4% | +20.9% |
+| GLM-5.3 | 56.7 | 50.8–76.6 | 45.4% | −2.5% |
+| Gemini 3.8 Flash | 320.6 | 260.4–383.6 | 38.4% | −21.7% |
+| DeepSeek V4.1 Flash | 217.2 | 197.4–242.4 | 20.7% | +3.9% |
+
+GLM 5.3 Flash nearly halved in a week. The catalogue's single speed number for it is a
+measurement of one day.
+
+**So:** before ranking on speed, check the drift — and note the route reports `planLimitDays: 7`,
+so **one week is the ceiling**. This is a stability check, never a history source.
+
 ---
 
 ## Reproducing these numbers
 
 ```bash
-python3 -m unittest test_aa_fetch.py          # 39 offline tests, no network
-python3 aa_fetch.py rank --json               # the 69 comparable models, tie-merged
+python3 -m unittest test_aa_fetch.py          # 40 offline tests, no network
+python3 aa_fetch.py rank --json               # the 72 comparable models, tie-merged
 python3 aa_fetch.py compare <a> <b> --scores  # per-eval scores + interval verdict
+python3 aa_fetch.py compare <a> <b> --stability  # the 7-day drift in finding #11
 ```
+
+**Checked, and it did not matter.** Speed is measured at four prompt lengths (`medium`,
+`long`, `hundredK`, `mediumParallel`) and the ordering is **identical at all four** — so
+quoting a speed at the default is safe. Worth writing down so nobody re-derives it.
 
 Two cautions:
 
@@ -199,8 +249,10 @@ publishes an interval. If the site stops publishing it, neither can be checked a
 3. **Compute cost at your own mix.** A blended price column is someone else's workload.
 4. **Filter deprecated and estimated entries first.** 58% and 76% is most of the table.
 5. **Decompose the composite and reweight it.** The leader wins on someone else's workload.
-6. **Check whether a zero means zero or "not measured".** Those are different claims.
-7. **Prefer a gap to a guess** when data is missing — in your analysis and in your output.
+6. **Sweep every assumption, and report the worst case.** Vary the weights *and* the mix — and
+   "no model survives" is a real answer.
+7. **Check whether a zero means zero or "not measured".** Those are different claims.
+8. **Prefer a gap to a guess** when data is missing — in your analysis and in your output.
 
 None of this is a criticism of the people publishing these benchmarks. The numbers are fine,
 the provenance is unusually well documented, and the confidence intervals that made finding
