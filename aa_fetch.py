@@ -3,16 +3,16 @@
 
 The site has no client-side API to intercept: it is a Next.js App Router page that ships
 the whole model catalogue inside the React Server Component flight payload. Asking for
-that payload directly (header `RSC: 1`) returns 653 full model objects, unauthenticated.
+that payload directly (header `RSC: 1`) returns the whole model catalogue, unauthenticated.
 
-  catalogue()   -> 653 full model objects       series()    -> 7-day speed history
+  catalogue()   -> the full model catalogue      series()    -> 7-day speed history
   compare()     -> a comparison that flags the ways the raw numbers mislead
   trustworthy() -> the ~69 models worth comparing, effort variants collapsed
   composite()   -> weighted score over the 10 evals behind the index
   rank()        -> quality/cost/speed/stability collapsed into one ordering
 
   python3 aa_fetch.py demo                          # self-check, hits the live site
-  python3 aa_fetch.py catalogue catalogue.json      # 653 models, all fields
+  python3 aa_fetch.py catalogue catalogue.json      # every model, all fields
   python3 aa_fetch.py compare <slug>... [flags]     # side-by-side + warnings
   python3 aa_fetch.py trustworthy [flags]           # the ~69, ranked
   python3 aa_fetch.py rank [flags]                  # one ordering to rule them all
@@ -77,7 +77,9 @@ def _scan(raw, pattern, require=()):
 
 
 # Creator objects (zai, openai, anthropic, ...) share the id+slug shape but have no
-# "creator" key. Requiring it is the cheap discriminator: 653 models vs 59 creators.
+# "creator" key. Requiring it is the cheap discriminator. Do NOT hardcode the ratio:
+# the page matched ~712 objects with ~59 creators, then ~1312 with ~656 -- the creator
+# count is not stable, and a fixed assumption would silently ingest or drop rows.
 @functools.lru_cache(maxsize=None)  # 2.9 MB per call; compare() would otherwise refetch it
 def catalogue(anchor_slug="glm-5-3-flash"):
     """Full model detail set, taken from any single model page's flight payload."""
@@ -103,7 +105,7 @@ def blended(m, cached=0, inp=3, out=1):
     AA ships five precomputed ratios; deriving it instead covers every mix and lets
     you solve for the crossover where the ranking flips. Verified in demo() against
     all five published fields. Cache price falls back to the input price when the
-    provider publishes none (405 of 653 models lack cacheHitPrice).
+    provider publishes none (most models lack cacheHitPrice).
     """
     i, o = m.get("price1mInputTokens"), m.get("price1mOutputTokens")
     if i is None or o is None:
@@ -181,10 +183,11 @@ def compare(slugs, mix=(0, 3, 1), prompt_type="long"):
     """Compare models, flagging the ways the raw numbers mislead.
 
     `mix` is cached:input:output. Returns (rows, warnings). Every score carries its
-    provenance next to it, because in this catalogue: 497/653 intelligence indices
-    are *estimated*, 381/653 models are deprecated, 508/653 have no per-eval
-    breakdown at all, and a median speed means little without its p05-p95 spread
-    and host count.
+    provenance next to it, because in this catalogue most intelligence indices are
+    *estimated* rather than measured, most models are deprecated, most have no
+    per-eval breakdown at all, and a median speed means little without its p05-p95
+    spread and host count. (Counts move daily -- see FINDINGS.md rather than a number
+    written here.)
     """
     by_slug = {m["slug"]: m for m in catalogue()}
     rows, warns = [], []
@@ -250,7 +253,7 @@ def _base_slug(slug):
 def trustworthy(dedupe_effort=True):
     """The models worth comparing: real eval breakdown, not deprecated, not estimated.
 
-    That is 104 of 653. Collapses effort variants to the top-scoring one (highest
+    That is roughly one model in six. Collapses effort variants to the top-scoring one (highest
     intelligence index, tie-broken on host count) so one model appears once.
     """
     pool = [

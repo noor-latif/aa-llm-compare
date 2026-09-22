@@ -38,7 +38,7 @@ Python 3.9+ (CI-verified on 3.9–3.13). No third-party packages. No API key.
 
 ```bash
 git clone <this repo> && cd aa-llm-compare
-python3 -m unittest test_aa_fetch.py   # 39 offline tests, no network, <1ms
+python3 -m unittest test_aa_fetch.py   # 40 offline tests, no network, <1ms
 python3 aa_fetch.py demo               # canary: hits the live site, asserts it still behaves
 python3 aa_fetch.py rank               # the ~72 comparable models, in one ordering
 ```
@@ -69,7 +69,7 @@ Flags work on `compare`, `trustworthy` and `rank`:
 | `--rank` | Collapse every axis into a single ordering |
 | `--json` | Machine-readable output |
 
-Nine warnings fire automatically on `compare`. **Three do not**, because acting on them
+Ten warnings fire automatically on `compare`. **Three do not**, because acting on them
 costs an extra request or only means something for your specific workload — the price mix
 (`--mix`), composite blind spots (`--scores` / `--evals` / `--weights`), and speed drift
 (`--stability`). Treat the automatic ones as the floor, not the ceiling.
@@ -105,9 +105,11 @@ ignored by the server (four different compare sets returned byte-identical respo
 slug works — the catalogue section is identical regardless.
 
 Two parsing gotchas. **Creator objects** (`zai`, `openai`, `anthropic`) match the same
-`{"id":"<uuid>","slug":"` shape as models: ~712 objects match, only ~653 are models, and the
-discriminator is the presence of a `creator` key. Without it you silently ingest 59 junk
-rows. And `timescaleData` is two floats, not a time series.
+`{"id":"<uuid>","slug":"` shape as models, and the payload contains **twice as many
+matching objects as there are models** — every model, plus a creator object. The
+discriminator is the presence of a `creator` key; without it you silently ingest hundreds of
+junk rows, and the ratio is not stable (it has been ~59 creators and ~656), so never hardcode
+it. And `timescaleData` is two floats, not a time series.
 
 Also available: `/api/models/performance-over-time` (POST, no auth, takes UUIDs not slugs,
 7 daily points — the ceiling) and `/api/v2/language/models` (GET, `x-api-key`, the official
